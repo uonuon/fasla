@@ -61,16 +61,16 @@ def write_inputs(path: str, products, orders, production, couriers, owner_estima
     st = dict((k, v) for k, v, _ in SETTINGS)
     st.update(settings or {})
     with pd.ExcelWriter(path, engine="openpyxl") as xw:
-        pd.DataFrame({"Read me": README}).to_excel(xw, "README", index=False)
-        pd.DataFrame([(k, st[k], d) for k, _, d in SETTINGS], columns=["setting", "value", "meaning"]).to_excel(xw, "Settings", index=False)
-        products.to_excel(xw, "Products", index=False)
+        pd.DataFrame({"Read me": README}).to_excel(xw, sheet_name="README", index=False)
+        pd.DataFrame([(k, st[k], d) for k, _, d in SETTINGS], columns=["setting", "value", "meaning"]).to_excel(xw, sheet_name="Settings", index=False)
+        products.to_excel(xw, sheet_name="Products", index=False)
         o = orders.copy()
         o["date"] = pd.to_datetime(o.date).dt.date
-        o.to_excel(xw, "Orders", index=False)
-        production.to_excel(xw, "Production", index=False)
-        couriers.to_excel(xw, "Couriers", index=False)
+        o.to_excel(xw, sheet_name="Orders", index=False)
+        production.to_excel(xw, sheet_name="Production", index=False)
+        couriers.to_excel(xw, sheet_name="Couriers", index=False)
         oe = owner_estimates if owner_estimates is not None else pd.DataFrame(columns=["style_id", "expected_units"])
-        oe.to_excel(xw, "OwnerEstimates", index=False)
+        oe.to_excel(xw, sheet_name="OwnerEstimates", index=False)
     wb = load_workbook(path)
     for name in wb.sheetnames:
         ws = wb[name]
@@ -176,21 +176,21 @@ def write_report(res: dict, path: str, backtest: pd.DataFrame | None = None):
         ("Data problems found", len(res["problems"])),
     ]
     with pd.ExcelWriter(path, engine="openpyxl") as xw:
-        pd.DataFrame(summary, columns=["What", "Value"]).to_excel(xw, "Summary", index=False)
-        piv.to_excel(xw, "Production plan", index=False)
-        ex.to_excel(xw, "Why this plan", index=False)
-        plan.to_excel(xw, "Plan per SKU", index=False)
+        pd.DataFrame(summary, columns=["What", "Value"]).to_excel(xw, sheet_name="Summary", index=False)
+        piv.to_excel(xw, sheet_name="Production plan", index=False)
+        ex.to_excel(xw, sheet_name="Why this plan", index=False)
+        plan.to_excel(xw, sheet_name="Plan per SKU", index=False)
         plan_c[["zone", "courier", "share", "p_hat", "fee", "exp_profit_per_order", "orders_seen"]].rename(
-            columns={"p_hat": "delivery_rate", "exp_profit_per_order": "profit_per_order"}).to_excel(xw, "Courier per zone", index=False)
+            columns={"p_hat": "delivery_rate", "exp_profit_per_order": "profit_per_order"}).to_excel(xw, sheet_name="Courier per zone", index=False)
         cour["table"][["courier", "zone", "fee", "return_fee", "orders", "p_hat", "p_low", "p_high", "exp_profit", "cost_per_delivered"]].rename(
-            columns={"p_hat": "delivery_rate", "p_low": "rate_low", "p_high": "rate_high", "exp_profit": "profit_per_order"}).to_excel(xw, "All couriers", index=False)
-        cour["advice"].to_excel(xw, "COD risk", index=False)
-        ret["exchanges"].to_excel(xw, "Size exchanges", index=False)
-        ret["refusal_by_zone"].reset_index().to_excel(xw, "Refusals by zone", index=False)
-        cf.to_excel(xw, "Cash flow", index=False)
-        pd.DataFrame({"problem": res["problems"] or ["No problems found"]}).to_excel(xw, "Data checks", index=False)
+            columns={"p_hat": "delivery_rate", "p_low": "rate_low", "p_high": "rate_high", "exp_profit": "profit_per_order"}).to_excel(xw, sheet_name="All couriers", index=False)
+        cour["advice"].to_excel(xw, sheet_name="COD risk", index=False)
+        ret["exchanges"].to_excel(xw, sheet_name="Size exchanges", index=False)
+        ret["refusal_by_zone"].reset_index().to_excel(xw, sheet_name="Refusals by zone", index=False)
+        cf.to_excel(xw, sheet_name="Cash flow", index=False)
+        pd.DataFrame({"problem": res["problems"] or ["No problems found"]}).to_excel(xw, sheet_name="Data checks", index=False)
         if backtest is not None:
-            backtest.to_excel(xw, "Backtest", index=False)
+            backtest.to_excel(xw, sheet_name="Backtest", index=False)
     wb = load_workbook(path)
     money_cols = ("Value", "cash", "unit_cost", "price", "fee", "return_fee", "profit_per_order", "cost_per_delivered",
                   "cash_in", "cash_out", "balance", "forecast_p10", "forecast_mean", "forecast_p90", "expected_sold",
