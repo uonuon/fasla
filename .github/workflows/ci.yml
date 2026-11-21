@@ -93,7 +93,7 @@ jobs:
         run: npx tsc
 
       - name: Deploy (builds the Docker image, pushes it to ECR, updates ECS)
-        run: npx cdk deploy FaslaApp --require-approval never --no-rollback --outputs-file cdk-outputs.json
+        run: npx cdk deploy FaslaApp --require-approval never --outputs-file cdk-outputs.json
 
       - name: Smoke test
         run: |
