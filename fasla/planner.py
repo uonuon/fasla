@@ -13,6 +13,8 @@ from brandopt.excel import SETTINGS, check_inputs, write_inputs, write_report
 from brandopt.forecast import assign_seasons
 from brandopt.view import build_view
 
+from .simple import SimpleError, couriers_table, parse_orders, read_table, style_summary
+
 REQUIRED = {
     "Products": ["style_id", "name", "category", "color", "size", "unit_cost", "price"],
     "Orders": ["date", "style_id", "color", "size", "qty", "zone", "courier", "status"],
@@ -43,18 +45,47 @@ def _norm_cols(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def read_workbook(data: bytes, max_rows: int = 300_000) -> dict:
-    """Parse + validate. Raises WorkbookError with plain-language problems the owner can fix."""
-    if not data[:4] == b"PK\x03\x04":
-        raise WorkbookError(["This is not an Excel .xlsx file. Download the template, fill it, and upload it again."])
+    """Parse + validate either the full Fasla template or an orders-only file (Shopify CSV, any sheet).
+    Raises WorkbookError with plain-language problems the owner can fix."""
+    is_xlsx = data[:4] == b"PK\x03\x04"
     try:
-        with zipfile.ZipFile(io.BytesIO(data)) as z:
-            if sum(i.file_size for i in z.infolist()) > 200 * 1024 * 1024:
-                raise WorkbookError(["The workbook is too large once unpacked."])
-        sheets = pd.read_excel(io.BytesIO(data), sheet_name=None, engine="openpyxl")
+        if is_xlsx:
+            with zipfile.ZipFile(io.BytesIO(data)) as z:
+                if sum(i.file_size for i in z.infolist()) > 200 * 1024 * 1024:
+                    raise WorkbookError(["The workbook is too large once unpacked."])
+        elif b"\x00" in data[:4096]:
+            raise WorkbookError(["This isn't an Excel (.xlsx) or CSV file. Export your orders as CSV or .xlsx and retry."])
+        table, full = read_table(data)
     except WorkbookError:
         raise
     except Exception:  # noqa: BLE001
-        raise WorkbookError(["We couldn't open this workbook. Save it again as .xlsx and retry."])
+        raise WorkbookError(["We couldn't open this file. Save it again as .xlsx or .csv and retry."])
+    if full:
+        return _read_full(pd.read_excel(io.BytesIO(data), sheet_name=None, engine="openpyxl"), max_rows)
+    return _read_simple(table, max_rows)
+
+
+def _read_simple(table: pd.DataFrame, max_rows: int) -> dict:
+    try:
+        x = parse_orders(table, max_rows)
+    except SimpleError as e:
+        raise WorkbookError(e.errors)
+    p, o, prod = x["products"], x["orders"], x["production"]
+    settings = {k: float(v) for k, v, _ in SETTINGS}
+    so, sp, labels = assign_seasons(o, prod)
+    warnings = list(x["warnings"])
+    if len(so) < 300:
+        warnings.append("Fewer than 300 orders: the plan will be rough. More history makes it sharper.")
+    stats = dict(orders=int(len(so)), products=int(len(p)), styles=int(p.style_id.nunique()), seasons=labels,
+                 couriers=x["couriers"], zones=int(o.zone.nunique()),
+                 date_from=str(o.date.min().date()), date_to=str(o.date.max().date()), new_styles=[],
+                 owner_estimates=0, mode="orders", style_list=style_summary(p, o), columns=x["columns"])
+    inp = dict(settings=settings, products=p, orders=o, production=prod, couriers=couriers_table(o, None), owner={},
+               problems=warnings, mode="orders")
+    return dict(inp=inp, checks=dict(errors=[], warnings=warnings, stats=stats), settings=settings)
+
+
+def _read_full(sheets: dict, max_rows: int) -> dict:
     sheets = {str(k).strip(): v for k, v in sheets.items()}
     errors, warnings = [], []
     for name, cols in REQUIRED.items():
@@ -137,14 +168,37 @@ def read_workbook(data: bytes, max_rows: int = 300_000) -> dict:
                  couriers=sorted(cr.courier.unique().tolist()), zones=int(o.zone.nunique()),
                  date_from=str(o.date.min().date()), date_to=str(o.date.max().date()), new_styles=new_styles,
                  owner_estimates=len(owner))
+    stats.update(mode="template", style_list=style_summary(p, o), columns={})
     inp = dict(settings=settings, products=p, orders=o, production=sheets["Production"], couriers=cr, owner=owner,
-               problems=warnings)
+               problems=warnings, mode="template")
     return dict(inp=inp, checks=dict(errors=[], warnings=warnings, stats=stats), settings=settings)
+
+
+MAPS = {  # key: (min, max) for every value in the map
+    "costs": (0.01, 1e7), "courier_fees": (0, 1e5), "owner": (0, 1e7),
+}
 
 
 def clean_settings(user: dict, base: dict) -> dict:
     out = dict(base)
     for k, v in (user or {}).items():
+        if k in MAPS:
+            lo, hi = MAPS[k]
+            if not isinstance(v, dict) or len(v) > 5000:
+                raise WorkbookError([f"'{k}' must be a list of values."])
+            clean = {}
+            for name, x in v.items():
+                if x is None or x == "":
+                    continue
+                try:
+                    x = float(x)
+                except (TypeError, ValueError):
+                    raise WorkbookError([f"The value for '{str(name)[:40]}' must be a number."])
+                if not lo <= x <= hi:
+                    raise WorkbookError([f"The value for '{str(name)[:40]}' must be between {lo:g} and {hi:g}."])
+                clean[str(name)[:200]] = x
+            out[k] = clean
+            continue
         if k not in EDITABLE:
             continue
         lo, hi, kind = EDITABLE[k]
@@ -158,10 +212,30 @@ def clean_settings(user: dict, base: dict) -> dict:
     return out
 
 
+def apply_overrides(inp: dict, st: dict) -> None:
+    """Costs, courier fees and owner estimates typed in the app win over the file."""
+    p = inp["products"]
+    costs = st.get("costs") or {}
+    if costs:
+        p["unit_cost"] = [costs.get(sid, c) for sid, c in zip(p.style_id, p.unit_cost)]
+    missing = sorted(p.loc[pd.to_numeric(p.unit_cost, errors="coerce").isna(), "style_id"].unique())
+    if missing:
+        raise WorkbookError([f"Add the cost to make each style. Missing: {', '.join(missing[:8])}"
+                             + (f" and {len(missing) - 8} more." if len(missing) > 8 else ".")])
+    p["unit_cost"] = p.unit_cost.astype(float)
+    if inp.get("mode") == "orders":
+        inp["couriers"] = couriers_table(inp["orders"], st.get("courier_fees"))
+    owner = {k: v for k, v in (st.get("owner") or {}).items() if v > 0}
+    if owner:
+        inp["owner"] = {**(inp.get("owner") or {}), **owner}
+    inp["settings"] = {k: v for k, v in st.items() if k not in MAPS}
+
+
 def run_plan_on(data: bytes, settings: dict, brand_name: str, solver_seconds: int = 25):
     parsed = read_workbook(data)
     inp = parsed["inp"]
     inp["settings"] = clean_settings(settings, parsed["settings"])
+    apply_overrides(inp, inp["settings"])
     view, res = build_view(inp, 200, (0.7, 0.85, 1.0, 1.15, 1.3), solver_seconds, brand_name)
     with tempfile.TemporaryDirectory() as d:
         path = Path(d) / "report.xlsx"

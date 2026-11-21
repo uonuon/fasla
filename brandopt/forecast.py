@@ -72,7 +72,8 @@ def weekly_profile(orders: pd.DataFrame, production: pd.DataFrame, weeks: int = 
     o["week"] = o.week.clip(0, weeks - 1)
     sold = o.groupby(["season", "style_id", "color", "size"]).qty.sum()
     prod = prod.set_index(["season", "style_id", "color", "size"]).produced
-    keys = [k for k in sold.index if k in prod.index and sold[k] < 0.9 * prod[k]]
+    # produced == 0 means "unknown" (orders-only upload): treat as never sold out
+    keys = [k for k in sold.index if k in prod.index and (prod[k] <= 0 or sold[k] < 0.9 * prod[k])]
     if not keys:
         return np.full(weeks, 1 / weeks)
     m = o.set_index(["season", "style_id", "color", "size"]).index.isin(keys)

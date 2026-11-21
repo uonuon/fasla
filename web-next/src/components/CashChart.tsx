@@ -42,7 +42,7 @@ export default function CashChart({ cash, label }: { cash: number[]; label: stri
           </g>
         ))}
         {weeks.map((w) => (
-          <text key={w} x={X(w)} y={H - 8} textAnchor="middle" fontSize={12} fill="var(--muted)">
+          <text key={w} x={X(w)} y={H - 8} textAnchor={w === 0 ? "start" : w === n - 1 ? "end" : "middle"} fontSize={12} fill="var(--muted)">
             Week {w}
           </text>
         ))}

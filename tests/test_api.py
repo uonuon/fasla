@@ -89,7 +89,7 @@ def test_empty_template_is_a_valid_upload(client):
 def test_bad_uploads_explain_the_problem(client):
     h = signup(client, "bad@x.com")
     bid = client.post("/api/brands", json={"name": "B"}, headers=h).json()["id"]
-    r = client.post(f"/api/brands/{bid}/uploads", files={"file": ("x.csv", b"a,b")}, headers=h)
+    r = client.post(f"/api/brands/{bid}/uploads", files={"file": ("x.txt", b"a,b")}, headers=h)
     assert r.status_code == 400
     r = client.post(f"/api/brands/{bid}/uploads", files={"file": ("x.xlsx", b"not excel")}, headers=h)
     assert r.status_code == 422 and "not an Excel" in r.json()["errors"][0]
@@ -172,3 +172,59 @@ def test_public_config_and_pages(client):
     assert "FASLA_CONFIG" in client.get("/config.js").text
     assert client.get("/").status_code == 200          # Next.js build if present, else the classic page
     assert client.get("/classic").status_code == 200
+
+
+SHOPIFY_CSV = (
+    "Name,Financial Status,Fulfillment Status,Created at,Lineitem quantity,Lineitem name,Lineitem price,Shipping City,Cancelled at\n"
+    + "".join(
+        f"#{1000 + i},paid,fulfilled,2025-{9 + i % 4:02d}-{1 + i % 27:02d} 10:00:00 +0200,1,"
+        f"Classic Tee - {'Black' if i % 3 else 'White'} / {['S', 'M', 'L', 'XL'][i % 4]},550,{'Cairo' if i % 2 else 'Giza'},\n"
+        f"#{1000 + i},,,,1,Cargo Pants - Olive / {['M', 'L'][i % 2]},980,,\n"
+        for i in range(240))
+    + "#2000,voided,,2025-10-05 10:00:00 +0200,1,Classic Tee - Black / M,550,Cairo,2025-10-06\n"
+).encode()
+
+
+def test_orders_only_csv_upload_and_run(client):
+    h = signup(client, "shopify@x.com")
+    bid = client.post("/api/brands", json={"name": "Shop"}, headers=h).json()["id"]
+    r = client.post(f"/api/brands/{bid}/uploads", headers=h,
+                    files={"file": ("orders_export.csv", SHOPIFY_CSV, "text/csv")})
+    assert r.status_code == 201, r.text
+    j = r.json()
+    st = j["checks"]["stats"]
+    assert st["mode"] == "orders" and st["styles"] == 2 and st["zones"] == 2
+    assert {s["id"] for s in st["style_list"]} == {"Classic Tee", "Cargo Pants"}
+    assert all(s["cost"] is None for s in st["style_list"])
+    pid = j["plan_id"]
+    # costs are required before planning
+    r = client.post(f"/api/plans/{pid}/run", json={"settings": {"budget": 200000}}, headers=h)
+    assert r.status_code == 400 and "cost" in r.json()["detail"]
+    r = client.post(f"/api/plans/{pid}/run", headers=h, json={"settings": {
+        "budget": 200000, "start_cash": 300000, "factory_moq": 0,
+        "costs": {"Classic Tee": 230, "Cargo Pants": 420}, "courier_fees": {"Your courier": 65}}})
+    assert r.status_code == 200, r.text
+    p = wait_done(client, pid, h)
+    assert p["status"] == "done", p.get("error")
+    v = p["view"]
+    assert v["refusal"]["overall"] > 0                      # the voided/cancelled order counts as refused
+    assert {s["name"] for s in v["styles"]} == {"Classic Tee", "Cargo Pants"}
+    assert client.get(f"/api/plans/{pid}/input", headers=h).headers["content-type"].startswith("text/csv")
+
+
+def test_orders_only_errors_are_plain(client):
+    h = signup(client, "badcsv@x.com")
+    bid = client.post("/api/brands", json={"name": "B"}, headers=h).json()["id"]
+    r = client.post(f"/api/brands/{bid}/uploads", headers=h,
+                    files={"file": ("x.csv", b"foo,bar\n1,2\n", "text/csv")})
+    assert r.status_code == 422
+    assert any("order date" in e for e in r.json()["errors"])
+
+
+def wait_done(c, pid, h, limit=400):
+    t0 = time.time()
+    while True:
+        p = c.get(f"/api/plans/{pid}", headers=h).json()
+        if p["status"] in ("done", "failed") or time.time() - t0 > limit:
+            return p
+        time.sleep(1)

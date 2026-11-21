@@ -260,7 +260,7 @@ function StyleRows({
                 {m.name}
               </button>
               <span className="tiny muted" style={{ display: "block" }}>
-                {isNew ? "New style · estimated from similar ones" : cap(m.category)}
+                {isNew ? "New style · estimated from similar ones" : m.category === "Other" ? "" : cap(m.category)}
               </span>
             </td>
             <td className="r num" style={{ fontWeight: 700 }}>
@@ -301,7 +301,7 @@ function StyleDetail({ view, V, id }: { view: PlanView; V: Variant; id: string }
   return (
     <aside className="card side stack" style={{ gap: 16 }} aria-labelledby="h-style">
       <div>
-        <p className="eyebrow">{cap(m.category)}</p>
+        {m.category !== "Other" && <p className="eyebrow">{cap(m.category)}</p>}
         <h2 id="h-style" style={{ marginTop: 4 }}>
           {m.name}
         </h2>
@@ -426,7 +426,7 @@ function Couriers({ view }: { view: PlanView }) {
 function Returns({ view }: { view: PlanView }) {
   const r = view.refusal;
   const zones = [...r.zones].sort((a, b) => b.rate - a.rate);
-  const flagged = view.exchanges.rows.filter((x) => x.flag);
+  const flagged = view.exchanges.rows.filter((x) => x.flag && x.rate > 0);
   const worst = zones[0];
   const high = (x: number) => x >= Math.max(0.3, r.overall * 1.25);
   const maxR = Math.max(0.5, ...zones.map((z) => z.rate));

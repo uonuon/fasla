@@ -28,7 +28,7 @@ def returns_report(orders: pd.DataFrame, products: pd.DataFrame) -> dict:
         lo, hi = _wilson(k, n)
         size_ex = g.groupby("size").exchange.mean()
         rows.append(dict(style_id=sid, name=names.get(sid, sid), delivered=n, exchange_rate=k / n,
-                         low=lo, high=hi, flag=lo > 1.5 * base_ex,
+                         low=lo, high=hi, flag=bool(k > 0 and base_ex > 0 and lo > 1.5 * base_ex),
                          worst_size=size_ex.idxmax(), worst_size_rate=size_ex.max()))
     ex = pd.DataFrame(rows).sort_values("exchange_rate", ascending=False)
     o["price_band"] = pd.cut(o.price, [0, 700, 1300, 10_000], labels=["< 700", "700-1300", "> 1300"])

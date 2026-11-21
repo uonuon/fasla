@@ -252,19 +252,30 @@ def list_plans(bid: uuid.UUID, user: User = Depends(current_user)):
 async def upload(bid: uuid.UUID, file: UploadFile = File(...), user: User = Depends(current_user)):
     with engine.connect() as con:
         _brand(con, bid, user)
-    if not (file.filename or "").lower().endswith(".xlsx"):
-        raise HTTPException(400, "Please upload an Excel .xlsx file (use the Fasla template).")
+    fname = (file.filename or "").lower()
+    if not fname.endswith((".xlsx", ".csv")):
+        raise HTTPException(400, "Please upload an Excel (.xlsx) or CSV file, such as your Shopify orders export.")
+    ext = "csv" if fname.endswith(".csv") else "xlsx"
     data = await file.read(S.max_upload_mb * 1024 * 1024 + 1)
     if len(data) > S.max_upload_mb * 1024 * 1024:
         raise HTTPException(413, f"The file is larger than {S.max_upload_mb} MB.")
+    if ext == "xlsx" and not data.startswith(b"PK\x03\x04"):
+        return JSONResponse({"ok": False, "errors": ["This is not an Excel .xlsx file. Save it again as .xlsx or CSV and retry."]},
+                            status_code=422)
     try:
         parsed = read_workbook(data)
     except WorkbookError as e:
         return JSONResponse({"ok": False, "errors": e.errors}, status_code=422)
     pid = uuid.uuid4()
-    path = f"{user.id}/{bid}/{pid}/input.xlsx"
+    path = f"{user.id}/{bid}/{pid}/input.{ext}"
     try:
-        storage.put(path, data, XLSX)
+        try:
+            storage.put(path, data, XLSX if ext == "xlsx" else "text/csv")
+        except StorageError:
+            if ext != "csv":
+                raise
+            # bucket not yet migrated to allow text/csv (supabase/migrations/0002): the bytes are what matter
+            storage.put(path, data, XLSX)
     except StorageError as e:
         raise HTTPException(502, f"Couldn't save the file: {e}")
     with engine.begin() as con:
@@ -344,6 +355,12 @@ def run_plan(pid: uuid.UUID, body: RunIn, user: User = Depends(current_user)):
                 st = clean_settings(body.settings, r["settings"] or {})
             except WorkbookError as e:
                 raise HTTPException(400, "; ".join(e.errors))
+            styles = ((r["checks"] or {}).get("stats") or {}).get("style_list") or []
+            costs = st.get("costs") or {}
+            missing = [x["name"] for x in styles if x.get("cost") is None and not costs.get(x["id"])]
+            if missing:
+                raise HTTPException(400, "Add the cost to make each style. Missing: " + ", ".join(missing[:8])
+                                    + (f" and {len(missing) - 8} more." if len(missing) > 8 else "."))
             con.execute(update(plans).where(plans.c.id == pid).values(status="queued", settings=st, error=None, view=None))
     pool.submit(_job, pid, user.id)
     return {"ok": True, "status": "queued"}
@@ -361,8 +378,10 @@ def _file(pid: uuid.UUID, user: User, which: str):
     except StorageError:
         raise HTTPException(404, "File not found")
     safe = re.sub(r"[^A-Za-z0-9_-]+", "_", bname)[:40] or "brand"
-    fname = f"fasla_{safe}_{which}.xlsx"
-    return Response(data, media_type=XLSX, headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+    ext = "csv" if path.endswith(".csv") else "xlsx"
+    fname = f"fasla_{safe}_{which}.{ext}"
+    return Response(data, media_type=XLSX if ext == "xlsx" else "text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
 @app.get("/api/plans/{pid}/report")

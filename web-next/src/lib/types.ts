@@ -37,6 +37,9 @@ export type Checks = {
     date_to: string;
     new_styles: string[];
     owner_estimates: number;
+    mode?: "orders" | "template";
+    style_list?: { id: string; name: string; price: number; cost: number | null; sold_last_year: number }[];
+    columns?: Record<string, string>;
   };
 };
 
