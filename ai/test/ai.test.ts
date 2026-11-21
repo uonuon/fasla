@@ -146,7 +146,7 @@ test("arabic headers and statuses with the fake model", async () => {
 
 test("cost uses list prices and never treats unknown models as free", () => {
   const cfg = config();
-  assert.equal(costUsd(cfg, "eu.anthropic.claude-haiku-5-5", 1_000_000, 0), 0.1);
-  assert.equal(costUsd(cfg, "eu.anthropic.claude-sonnet-5-5", 0, 1_000_000), 10);
+  assert.equal(costUsd(cfg, "eu.anthropic.claude-haiku-5-5", 1_000_000, 0), 0.11);
+  assert.equal(costUsd(cfg, "eu.anthropic.claude-sonnet-5-5", 0, 1_000_000), 11);
   assert.ok(costUsd(cfg, "unknown-model", 0, 1_000_000) >= 10);
 });

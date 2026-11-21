@@ -26,11 +26,12 @@ export const config = () => ({
   },
   perMinute: num(process.env.AI_RATE_PER_MINUTE, 5),
   alertTopicArn: process.env.AI_ALERT_TOPIC_ARN || "",
-  // List prices, USD per million tokens. Override with AI_PRICES='{"model-id":{"input":..,"output":..}}'.
+  // Bedrock offer prices, USD per million tokens (EU routing costs 10% more than global; checked 2026-11-21 with
+  // `aws bedrock list-foundation-model-agreement-offers`). Override with AI_PRICES='{"model-id":{"input":..,"output":..}}'.
   prices: {
-    "eu.anthropic.claude-haiku-5-5": { input: 0.1, output: 0.5 },
+    "eu.anthropic.claude-haiku-5-5": { input: 0.11, output: 0.55 },
     "global.anthropic.claude-haiku-5-5": { input: 0.1, output: 0.5 },
-    "eu.anthropic.claude-sonnet-5-5": { input: 2, output: 10 },
+    "eu.anthropic.claude-sonnet-5-5": { input: 2.2, output: 11 },
     "global.anthropic.claude-sonnet-5-5": { input: 2, output: 10 },
     ...(process.env.AI_PRICES ? (JSON.parse(process.env.AI_PRICES) as Record<string, ModelPrice>) : {}),
   } as Record<string, ModelPrice>,
