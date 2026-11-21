@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import AskFasla from "./AskFasla";
 import CashChart from "./CashChart";
+import Replan from "./Replan";
 import { cap, fmt, pct, short } from "@/lib/format";
 import type { Plan, PlanView, Variant } from "@/lib/types";
 
@@ -60,7 +61,7 @@ function advice(v: PlanView, i: number, rec: number): { tone: Tone; title: strin
   return { tone: "plain", title: "A comfortable option.", text: `Cash stays above ${short(x.cash_min)} EGP.${vsRecText}` };
 }
 
-export default function Dashboard({ plan, view, onDownload }: { plan: Plan; view: PlanView; onDownload: () => void }) {
+export default function Dashboard({ plan, view, onDownload, onReplan }: { plan: Plan; view: PlanView; onDownload: () => void; onReplan: () => void }) {
   const rec = useMemo(() => recommendedIndex(view), [view]);
   const [bi, setBi] = useState(view.base);
   const V = view.variants[bi];
@@ -115,7 +116,8 @@ export default function Dashboard({ plan, view, onDownload }: { plan: Plan; view
             ))}
           </div>
           <p className="tiny muted" style={{ margin: "6px 0 0" }}>
-            100% is the budget you entered. ★ is our pick.
+            100% is the budget you entered. ★ is our pick. Different budget or costs?{" "}
+            <a href="#replan-bottom">Change numbers &amp; re-plan</a>
           </p>
         </div>
       </section>
@@ -232,22 +234,16 @@ export default function Dashboard({ plan, view, onDownload }: { plan: Plan; view
         <Returns view={view} />
       </section>
 
-      {view.problems.length > 0 && (
-        <details className="card">
-          <summary>Notes about your data ({view.problems.length})</summary>
-          <ul className="clean small muted">
-            {view.problems.map((p, i) => (
-              <li key={i}>{p}</li>
-            ))}
-          </ul>
-        </details>
-      )}
+      <Trust view={view} />
 
-      <div className="actions">
-        <span className="small muted">Want every number, size by size? The Excel report has it all.</span>
-        <button type="button" className="btn" onClick={onDownload}>
-          Download Excel report
-        </button>
+      <div id="replan-bottom" className="actions" style={{ alignItems: "flex-start" }}>
+        <Replan plan={plan} onStarted={onReplan} />
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <span className="small muted">Every number, size by size:</span>
+          <button type="button" className="btn" onClick={onDownload}>
+            Download Excel report
+          </button>
+        </div>
       </div>
     </main>
   );
@@ -483,5 +479,46 @@ function Returns({ view }: { view: PlanView }) {
         </div>
       )}
     </div>
+  );
+}
+
+/** How much to trust these numbers: what the forecast is built on and how accurate it has been. */
+function Trust({ view }: { view: PlanView }) {
+  const h = view.history;
+  const growth = h.growth - 1;
+  const soldOut = h.production_known
+    ? h.soldout > 0
+      ? `${fmt(h.soldout)} sizes sold out in past seasons, so their recorded sales understate demand. Fasla estimated how much more they would have sold and planned for that.`
+      : "No size sold out in past seasons, so recorded sales are real demand."
+    : (h.soldout_inferred ?? 0) > 0
+      ? `Your file has no production numbers, so Fasla looked at when each size stopped selling: ${fmt(h.soldout_inferred ?? 0)} sizes most likely sold out early, and their demand was adjusted up.`
+      : "Your file has no production numbers; none of your sizes looked like they sold out early.";
+  return (
+    <section className="card" aria-labelledby="h-trust">
+      <div className="card-head">
+        <h2 id="h-trust">How much to trust these numbers</h2>
+      </div>
+      <ul className="clean small" style={{ margin: 0 }}>
+        <li>
+          <b>Built from</b> {fmt(h.orders)} orders over {h.seasons} season{h.seasons === 1 ? "" : "s"}.{" "}
+          {h.seasons < 2 ? "With one season Fasla can't see whether you're growing, so it assumes you'll sell about the same." : `Fasla expects about ${pct(Math.abs(growth))} ${growth >= 0 ? "more" : "fewer"} sales than last season, measured on sizes that stayed in stock in both seasons and kept cautious.`}
+        </li>
+        <li>
+          <b>Sell-outs:</b> {soldOut}
+        </li>
+        <li>
+          <b>Accuracy:</b> on test brands where the true demand is known, Fasla&apos;s forecast per style was about 40% closer than
+          repeating last season&apos;s sales (about 20% off vs 30% off).
+          {view.check
+            ? ` On your own data, planning ${view.check.season} from the seasons before it: ${pct(view.check.style_error)} off per style, vs ${pct(view.check.repeat_last_error)} for repeating last season.`
+            : " The ranges in the table (8 seasons in 10) show how far one season can swing."}
+        </li>
+        {view.problems.map((p, i) => (
+          <li key={i} className="muted">
+            {p}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

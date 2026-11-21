@@ -83,6 +83,11 @@ function PlanScreen({ id, email }: { id: string; email: string }) {
           plan={plan}
           view={plan.view}
           onDownload={() => download(`/api/plans/${id}/report`, "fasla_report.xlsx").catch((e) => alertLater(e))}
+          onReplan={() => {
+            setPlan((p) => (p ? { ...p, status: "queued" } : p));
+            setNonce((n) => n + 1);
+            window.scrollTo({ top: 0 });
+          }}
         />
       </>
     );

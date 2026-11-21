@@ -120,3 +120,13 @@ def test_evaluate_plan_accounting():
     # scenario 1: sell 80, 20 left at 150 -> 40000 + 3000 - 20000; scenario 2: sell 100 -> 50000 - 20000
     assert r["profit"] == pytest.approx(((40000 + 3000 - 20000) + (50000 - 20000)) / 2)
     assert r["lost_units"] == pytest.approx(10)
+
+
+def test_forecast_accuracy_guardrail():
+    """Accuracy on simulated brands with known true demand (python -m brandopt.accuracy for the full table).
+    Before sell-out detection and the stable-sizes growth rule: orders-only bias -22%, template +8%."""
+    from brandopt.accuracy import run
+    d = run(6).groupby("variant")[["style_wape", "bias"]].mean()
+    oo, tp = d.loc["orders only"], d.loc["template (production known)"]
+    assert abs(oo.bias) < 0.12 and oo.style_wape < 0.20, oo.to_dict()
+    assert abs(tp.bias) < 0.08 and tp.style_wape < 0.23, tp.to_dict()

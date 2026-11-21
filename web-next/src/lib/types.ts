@@ -105,7 +105,16 @@ export type PlanView = {
   cash_weeks: number;
   lead_weeks: number;
   problems: string[];
-  history: { orders: number; seasons: number; soldout: number; skus: number; growth: number };
+  history: {
+    orders: number;
+    seasons: number;
+    soldout: number;
+    skus: number;
+    growth: number;
+    soldout_inferred?: number;
+    production_known?: boolean;
+  };
+  check?: { season: string; styles: number; style_error: number; repeat_last_error: number; total_bias: number } | null;
 };
 
 export type Plan = PlanSummary & { brand_name: string; settings: Settings; checks: Checks | null; view?: PlanView };

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from .excel import run_plan
-from .forecast import sample_scenarios, sizes_in, weekly_profile
+from .forecast import assign_seasons, build_forecast, sample_scenarios, sizes_in, weekly_profile
 from .insights import cash_flow
 from .production import evaluate_plan, explain_styles, optimize_production
 
@@ -32,6 +32,35 @@ def usual_way_plan(sku: pd.DataFrame, per_style: dict, budget: float) -> np.ndar
     if cost > budget:
         q = np.floor(q * budget / cost)
     return q.astype(int)
+
+
+def own_data_check(inp: dict, fc: dict) -> dict | None:
+    """Plan the most recent season using only the seasons before it, and compare with what really sold
+    (sell-outs corrected). Needs 3+ seasons. Per-style error is what the owner feels as cash and leftovers."""
+    cs = fc["corrected"]
+    seasons = sorted(cs.season.unique())
+    if len(seasons) < 3:   # with one earlier season there is no trend to learn: the test says nothing useful
+        return None
+    try:
+        o, prod, labels = assign_seasons(inp["orders"], inp["production"])
+        last = seasons[-1]
+        o_tr = inp["orders"].loc[o.index[o.season < last]]
+        p_tr = inp["production"][prod.season < last]
+        f = build_forecast(o_tr, p_tr, inp["products"])
+        seen = set(cs[cs.season < last].style_id)
+        actual = cs[(cs.season == last) & cs.style_id.isin(seen)].groupby("style_id").demand_est.sum()
+        pred = f["sku"].groupby("style_id")["mean"].sum().reindex(actual.index).fillna(0)
+        if actual.sum() <= 0:
+            return None
+        # what most owners do: repeat the previous season's recorded sales
+        prev = cs[(cs.season == seasons[-2])].groupby("style_id").sold.sum().reindex(actual.index).fillna(0)
+        err = lambda x: float((x - actual).abs().sum() / actual.sum())  # noqa: E731
+        rows = [dict(style=str(sid), predicted=_r(pred[sid]), actual=_r(actual[sid])) for sid in actual.index]
+        return dict(season=str(labels[last]), styles=len(actual),
+                    style_error=_r(err(pred), 3), repeat_last_error=_r(err(prev), 3),
+                    total_bias=_r(float(pred.sum() / actual.sum() - 1), 3), rows=rows)
+    except Exception:  # noqa: BLE001 - a check that can't run shouldn't block the plan
+        return None
 
 
 def _r(x, d=0):
@@ -119,7 +148,10 @@ def build_view(inp: dict, n_scen: int = 200, budget_steps=BUDGET_STEPS, time_lim
         cash_weeks=len(variants[0]["cash"]), lead_weeks=int(s["lead_weeks"]),
         problems=res["problems"],
         history=dict(orders=int(len(inp["orders"])), seasons=int(fc["corrected"].season.nunique()),
-                     soldout=int(fc["corrected"].sold_out.sum()), skus=int(len(sku)), growth=_r(fc["growth"], 3)),
+                     soldout=int(fc["corrected"].sold_out.sum()), skus=int(len(sku)), growth=_r(fc["growth"], 3),
+                     soldout_inferred=int(fc["corrected"].get("sold_out_inferred", pd.Series(dtype=bool)).sum()),
+                     production_known=bool((inp["production"].produced > 0).any())),
+        check=own_data_check(inp, fc),
     )
     if backtest is not None:
         data["backtest"] = backtest.to_dict("records")

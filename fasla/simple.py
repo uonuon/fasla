@@ -245,8 +245,8 @@ def parse_orders(df: pd.DataFrame, max_rows: int = 300_000, columns: dict | None
         warnings.append("No order status column: we assumed every order was delivered, so refusals aren't counted.")
     if not col["zone"]:
         warnings.append("No city or zone column: delivery advice is for all zones together.")
-    warnings.append("No production history: Fasla can't see which sizes sold out, so demand for your best sellers "
-                    "may be a little low. The full template fixes this.")
+    warnings.append("No production numbers: Fasla estimates which sizes sold out from when they stopped selling. "
+                    "Adding how many you produced (full template) makes demand for best sellers more accurate.")
     return dict(products=products, orders=orders, production=production, couriers=sorted(orders.courier.unique()),
                 warnings=warnings, columns={k: v for k, v in col.items() if v})
 

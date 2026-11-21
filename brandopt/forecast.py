@@ -94,6 +94,15 @@ def corrected_sales(orders: pd.DataFrame, production: pd.DataFrame, weeks: int =
     df["last_week"] = df.last_week.fillna(0).astype(int)
     df["sold_out"] = (df.produced > 0) & (df.sold >= 0.97 * df.produced)
     frac = cum[df.last_week.clip(0, weeks - 1)]
+    # Production unknown (orders-only upload): infer sell-outs from timing. If the size had stayed in stock,
+    # sales after its last sale week would have continued at the season's normal pace; when that expected
+    # remainder is large (>= 3 pieces, i.e. <5% chance of seeing none by luck), the size most likely sold out.
+    unknown = df.produced <= 0
+    if unknown.any():
+        expected_after = df.sold * (1 - frac) / np.maximum(frac, 0.05)
+        inferred = unknown & (df.sold >= 4) & (expected_after >= 3) & (df.last_week < weeks - 2)
+        df["sold_out"] = df.sold_out | inferred
+        df["sold_out_inferred"] = inferred
     df["demand_est"] = np.where(df.sold_out, df.sold / np.maximum(frac, 0.15), df.sold)
     df["sellout_week"] = np.where(df.sold_out, df.last_week + 1, np.nan)
     return df
@@ -110,7 +119,17 @@ def build_forecast(orders: pd.DataFrame, production: pd.DataFrame, products: pd.
     last = seasons[-1]
     st_tot = cs.groupby(["season", "style_id"]).demand_est.sum().unstack(0)
 
-    # brand growth from styles present in both of the last two seasons (pooled ratio, shrunk to 1)
+    # brand growth, shrunk 20% toward "no growth". Measured on sizes that stayed in stock in both of the last
+    # two seasons: their sales are real demand, while corrected sell-outs carry estimation noise that
+    # inflated growth (simulated brands: 1.19 estimated vs 1.15 true; with this rule 1.15).
+    if growth is None and len(seasons) >= 2:
+        a = cs[cs.season == seasons[-2]].set_index(["style_id", "color", "size"])
+        b = cs[cs.season == last].set_index(["style_id", "color", "size"])
+        k = a.index.intersection(b.index)
+        stable = k[(~a.loc[k, "sold_out"].to_numpy(bool)) & (~b.loc[k, "sold_out"].to_numpy(bool))]
+        if a.loc[stable, "sold"].sum() >= 50:
+            growth = float(np.clip(0.8 * b.loc[stable, "sold"].sum() / a.loc[stable, "sold"].sum() + 0.2, 0.7, 1.6))
+    # fallback: styles present in both of the last two seasons (pooled ratio of corrected demand, shrunk to 1)
     if growth is None:
         if len(seasons) >= 2:
             both = st_tot[[seasons[-2], last]].dropna()
