@@ -5,6 +5,8 @@ import { Construct } from "constructs";
 
 export interface BaseStackProps extends StackProps {
   githubRepo: string; // "owner/repo"
+  githubOwnerId?: string; // numeric GitHub IDs, as they appear in the OIDC token subject
+  githubRepoId?: string;
 }
 
 /**
@@ -17,6 +19,7 @@ export class BaseStack extends Stack {
 
   constructor(scope: Construct, id: string, props: BaseStackProps) {
     super(scope, id, props);
+    const [owner, repo] = props.githubRepo.split("/");
 
     // Placeholders only. Every key must exist, because ECS refuses to start a task whose secret key is missing.
     // The real values are pasted in the Secrets Manager console.
@@ -44,7 +47,14 @@ export class BaseStack extends Stack {
       maxSessionDuration: Duration.hours(1),
       assumedBy: new iam.WebIdentityPrincipal(provider.openIdConnectProviderArn, {
         StringEquals: { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
-        StringLike: { "token.actions.githubusercontent.com:sub": `repo:${props.githubRepo}:ref:refs/heads/main` },
+        // GitHub's subject pins the owner and repo by numeric ID (repo:owner@ID/repo@ID:...), so a deleted and
+        // re-created repo with the same name can't deploy. The name-only form is kept for older token formats.
+        StringLike: {
+          "token.actions.githubusercontent.com:sub": [
+            `repo:${props.githubOwnerId ? `${owner}@${props.githubOwnerId}/${repo}@${props.githubRepoId}` : props.githubRepo}:ref:refs/heads/main`,
+            `repo:${props.githubRepo}:ref:refs/heads/main`,
+          ],
+        },
       }),
     });
     // cdk deploy works through the roles that `cdk bootstrap` created; the deploy role only needs to assume them.
