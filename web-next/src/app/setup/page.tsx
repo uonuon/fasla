@@ -336,13 +336,19 @@ function StepStyles({
         ))}
       </dl>
 
+      {s.ai_mapped && (
+        <p className="note info small" style={{ margin: 0 }}>
+          <b>Fasla&apos;s AI read your file.</b> Your column names or statuses weren&apos;t standard, so the AI matched them. Open
+          &ldquo;How we read your file&rdquo; to check; if something is wrong, rename that column and upload again.
+        </p>
+      )}
       {cols.length > 0 && (
-        <details>
+        <details open={s.ai_mapped || undefined}>
           <summary>How we read your file</summary>
           <ul className="clean small" style={{ marginTop: 8 }}>
             {cols.map(([k, c]) => (
               <li key={k}>
-                {COLUMN_LABELS[k] ?? k} ← column <code>{c}</code>
+                {COLUMN_LABELS[k] ?? k} ← column <code dir="auto">{c.replace(/_/g, " ")}</code>
               </li>
             ))}
             {!s.columns?.size && <li>Size and colour ← read from the product name</li>}

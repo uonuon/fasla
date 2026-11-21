@@ -40,6 +40,16 @@ jobs:
           sudo -u postgres $B/pg_ctl -D /tmp/pgdata -o "-p 54329 -k /tmp -c listen_addresses=" -l /tmp/pg.log start
           psql "postgresql://postgres@/postgres?host=/tmp&port=54329" -c "select version()"
 
+      # tests/test_ai.py runs the real AI service next to the app (with a stand-in model)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ai/package-lock.json
+      - name: Build the AI service
+        working-directory: ai
+        run: npm ci --no-audit --no-fund && npm run build
+
       - name: Run tests
         run: python -m pytest tests -q
 
@@ -63,6 +73,25 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: "1"
 
+  ai:
+    name: AI service (types, tests, image)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ai/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - name: Image builds
+        run: docker build -t fasla-ai:ci .
+
   docker:
     name: Docker image builds
     runs-on: ubuntu-24.04
@@ -80,7 +109,7 @@ jobs:
 
   deploy:
     name: Deploy to AWS (eu-north-1)
-    needs: [test, web, docker]
+    needs: [test, web, ai, docker]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 40

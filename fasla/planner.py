@@ -33,9 +33,10 @@ EDITABLE = {  # key: (min, max, kind)
 
 
 class WorkbookError(Exception):
-    def __init__(self, errors: list[str]):
+    def __init__(self, errors: list[str], columns_problem: bool = False):
         super().__init__("; ".join(errors))
         self.errors = errors
+        self.columns_problem = columns_problem
 
 
 def _norm_cols(df: pd.DataFrame) -> pd.DataFrame:
@@ -44,7 +45,7 @@ def _norm_cols(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def read_workbook(data: bytes, max_rows: int = 300_000) -> dict:
+def read_workbook(data: bytes, max_rows: int = 300_000, mapping: dict | None = None) -> dict:
     """Parse + validate either the full Fasla template or an orders-only file (Shopify CSV, any sheet).
     Raises WorkbookError with plain-language problems the owner can fix."""
     is_xlsx = data[:4] == b"PK\x03\x04"
@@ -62,14 +63,21 @@ def read_workbook(data: bytes, max_rows: int = 300_000) -> dict:
         raise WorkbookError(["We couldn't open this file. Save it again as .xlsx or .csv and retry."])
     if full:
         return _read_full(pd.read_excel(io.BytesIO(data), sheet_name=None, engine="openpyxl"), max_rows)
-    return _read_simple(table, max_rows)
+    return _read_simple(table, max_rows, mapping)
 
 
-def _read_simple(table: pd.DataFrame, max_rows: int) -> dict:
+def read_orders_table(data: bytes) -> pd.DataFrame | None:
+    """The orders table of an orders-only file (None for the full template)."""
+    table, full = read_table(data)
+    return None if full else table
+
+
+def _read_simple(table: pd.DataFrame, max_rows: int, mapping: dict | None = None) -> dict:
+    mapping = mapping or {}
     try:
-        x = parse_orders(table, max_rows)
+        x = parse_orders(table, max_rows, columns=mapping.get("columns"), status_map=mapping.get("status"))
     except SimpleError as e:
-        raise WorkbookError(e.errors)
+        raise WorkbookError(e.errors, columns_problem=e.columns_problem)
     p, o, prod = x["products"], x["orders"], x["production"]
     settings = {k: float(v) for k, v, _ in SETTINGS}
     so, sp, labels = assign_seasons(o, prod)
@@ -79,7 +87,8 @@ def _read_simple(table: pd.DataFrame, max_rows: int) -> dict:
     stats = dict(orders=int(len(so)), products=int(len(p)), styles=int(p.style_id.nunique()), seasons=labels,
                  couriers=x["couriers"], zones=int(o.zone.nunique()),
                  date_from=str(o.date.min().date()), date_to=str(o.date.max().date()), new_styles=[],
-                 owner_estimates=0, mode="orders", style_list=style_summary(p, o), columns=x["columns"])
+                 owner_estimates=0, mode="orders", style_list=style_summary(p, o), columns=x["columns"],
+                 ai_mapped=bool(mapping.get("columns") or mapping.get("status")))
     inp = dict(settings=settings, products=p, orders=o, production=prod, couriers=couriers_table(o, None), owner={},
                problems=warnings, mode="orders")
     return dict(inp=inp, checks=dict(errors=[], warnings=warnings, stats=stats), settings=settings)
@@ -228,11 +237,11 @@ def apply_overrides(inp: dict, st: dict) -> None:
     owner = {k: v for k, v in (st.get("owner") or {}).items() if v > 0}
     if owner:
         inp["owner"] = {**(inp.get("owner") or {}), **owner}
-    inp["settings"] = {k: v for k, v in st.items() if k not in MAPS}
+    inp["settings"] = {k: v for k, v in st.items() if k not in MAPS and not k.startswith("_")}
 
 
 def run_plan_on(data: bytes, settings: dict, brand_name: str, solver_seconds: int = 25):
-    parsed = read_workbook(data)
+    parsed = read_workbook(data, mapping=(settings or {}).get("_mapping"))
     inp = parsed["inp"]
     inp["settings"] = clean_settings(settings, parsed["settings"])
     apply_overrides(inp, inp["settings"])

@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import AskFasla from "./AskFasla";
 import CashChart from "./CashChart";
 import { cap, fmt, pct, short } from "@/lib/format";
 import type { Plan, PlanView, Variant } from "@/lib/types";
@@ -14,7 +15,9 @@ export function recommendedIndex(v: PlanView): number {
   const a = pick((x) => x.cash_min >= cushion);
   if (a >= 0) return a;
   const b = pick((x) => x.cash_min >= 0);
-  return b >= 0 ? b : v.base;
+  if (b >= 0) return b;
+  // every option runs out of cash: point to the least risky one
+  return v.variants.reduce((best, x, i) => (x.cash_min > v.variants[best].cash_min ? i : best), 0);
 }
 
 function advice(v: PlanView, i: number, rec: number): { tone: Tone; title: string; text: string } {
@@ -24,6 +27,12 @@ function advice(v: PlanView, i: number, rec: number): { tone: Tone; title: strin
   const vsRec = x.profit - r.profit;
   const vsRecText =
     i === rec ? "" : ` That's ${short(Math.abs(vsRec))} EGP ${vsRec >= 0 ? "more" : "less"} expected profit than our pick (${Math.round(r.mult * 100)}%).`;
+  if (x.cash_min < 0 && r.cash_min < 0)
+    return {
+      tone: "bad",
+      title: "Cash runs out at every budget level.",
+      text: `At ${Math.round(x.mult * 100)}% you'd be ${short(-x.cash_min)} EGP short in week ${x.cash_min_week}. Lower your fixed costs, ask buyers for deposits, or add cash before producing. The least risky option is ${Math.round(r.mult * 100)}%.`,
+    };
   if (x.cash_min < 0)
     return {
       tone: "bad",
@@ -154,6 +163,15 @@ export default function Dashboard({ plan, view, onDownload }: { plan: Plan; view
           <p className="kpi-sub">Expected on average; sold off at {pct(leftoverShare)} of price</p>
         </div>
       </section>
+
+      <AskFasla
+        planId={plan.id}
+        suggestions={[
+          `Why make ${fmt(rows[0]?.planned ?? 0)} of ${meta[rows[0]?.id]?.name ?? "my top style"}?`,
+          "What if I can only spend 80% of the budget?",
+          "What's my biggest risk this season?",
+        ]}
+      />
 
       <section className="row" aria-labelledby="h-produce">
         <div className="card grow">

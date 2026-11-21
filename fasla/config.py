@@ -47,6 +47,8 @@ class Settings:
     workers: int = int(_env("PLAN_WORKERS", "2"))
     solver_seconds: int = int(_env("SOLVER_SECONDS", "25"))
     public_url: str = _env("PUBLIC_URL", "")
+    ai_url: str = _env("AI_URL", "").rstrip("/")                 # the AI sidecar, e.g. http://127.0.0.1:3001; empty = AI off
+    ai_internal_key: str = _env("AI_INTERNAL_KEY", "")
 
     def validate(self) -> list[str]:
         probs = []

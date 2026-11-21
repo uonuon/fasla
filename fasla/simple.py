@@ -45,13 +45,15 @@ NAMES = {"date": "order date", "style": "product / style", "price": "price", "si
 
 
 class SimpleError(Exception):
-    def __init__(self, errors: list[str]):
+    def __init__(self, errors: list[str], columns_problem: bool = False):
         super().__init__("; ".join(errors))
         self.errors = errors
+        self.columns_problem = columns_problem   # True when a smarter column mapping could fix it
 
 
 def _norm(c) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", str(c).strip().lower()).strip("_")
+    # keep letters in any script (Arabic headers must survive for the AI to read them)
+    return re.sub(r"[^\w]+", "_", str(c).strip().lower()).strip("_")
 
 
 def read_table(data: bytes, filename: str = "") -> tuple[pd.DataFrame, bool]:
@@ -100,13 +102,26 @@ def _split_variant(name: str) -> tuple[str, str | None, str | None]:
     return base.strip(), (rest[0] if rest else None), size
 
 
-def _status(raw: str, cancelled: str, financial: str) -> str:
-    s = f"{raw} {financial}".strip().lower()
+REFUSED_WORDS = ("refus", "cancel", "reject", "return", "rto", "fail", "void", "refund", "lost")
+DELIVERED_WORDS = ("deliver", "fulfil", "complete", "paid", "success", "done", "closed", "shipped", "received",
+                   "authorized", "pending", "unfulfilled", "partial")
+STATUSES = ("delivered", "refused", "size_exchange")
+
+
+def _known(s: str) -> bool:
+    return not s or "exchang" in s or any(w in s for w in REFUSED_WORDS + DELIVERED_WORDS)
+
+
+def _status(raw: str, cancelled: str, financial: str, status_map: dict | None = None) -> str:
     if str(cancelled).strip() and str(cancelled).strip().lower() not in ("nan", "none"):
         return "refused"
+    key = str(raw).strip().lower()
+    if status_map and key in status_map and status_map[key] in STATUSES:
+        return status_map[key]
+    s = f"{raw} {financial}".strip().lower()
     if "exchang" in s:
         return "size_exchange"
-    if any(w in s for w in ("refus", "cancel", "reject", "return", "rto", "fail", "void", "refund", "lost")):
+    if any(w in s for w in REFUSED_WORDS):
         return "refused"
     return "delivered"
 
@@ -115,16 +130,45 @@ def _num(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s.astype(str).str.replace(r"[^0-9.\-]", "", regex=True).replace("", np.nan), errors="coerce")
 
 
-def parse_orders(df: pd.DataFrame, max_rows: int = 300_000) -> dict:
-    """Map an orders table to the planner's tables. Raises SimpleError with fixable messages."""
+def normalize(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df.columns = [_norm(c) for c in df.columns]
+    df.columns = [_norm(c) or f"column_{i + 1}" for i, c in enumerate(df.columns)]
     df = df.loc[:, ~pd.Index(df.columns).duplicated()]
-    df = df.dropna(how="all")
+    return df.dropna(how="all")
+
+
+def ai_sample(table: pd.DataFrame, rows: int = 8) -> dict:
+    """What the AI needs to suggest a column mapping: headers, a few rows, and status-like values."""
+    df = normalize(table)
+    sample = df.head(rows).astype(str).map(lambda v: v[:60]).values.tolist()
+    return dict(headers=list(df.columns)[:80], original=[str(c)[:60] for c in table.columns][:80], sample=sample)
+
+
+def unknown_statuses(table: pd.DataFrame, columns: dict | None = None, limit: int = 40) -> list[str]:
+    """Status values our keyword rules don't recognise (e.g. Arabic), most frequent first."""
+    df = normalize(table)
+    c = (columns or {}).get("status") or _pick(list(df.columns), "status")
+    if not c or c not in df.columns:
+        return []
+    vals = df[c].astype(str).str.strip().str.lower()
+    vals = vals[(vals != "") & (vals != "nan")]
+    unk = vals[~vals.map(_known)]
+    return unk.value_counts().head(limit).index.tolist()
+
+
+def parse_orders(df: pd.DataFrame, max_rows: int = 300_000, columns: dict | None = None,
+                 status_map: dict | None = None) -> dict:
+    """Map an orders table to the planner's tables. Raises SimpleError with fixable messages.
+    `columns` (field -> column name, e.g. from the AI) wins over the built-in name rules."""
+    df = normalize(df)
     if len(df) > max_rows:
         raise SimpleError([f"The file has more than {max_rows:,} rows."])
     cols = list(df.columns)
     col = {k: _pick(cols, k) for k in ALIASES}
+    for k, v in (columns or {}).items():
+        if k in ALIASES and v in cols:
+            col[k] = v
+    status_map = {str(k).strip().lower(): v for k, v in (status_map or {}).items()}
     # Shopify fills order-level fields (date, city, status…) only on an order's first line item
     order_col = next((c for c in ("name", "order_id", "order_number", "order", "order_no") if c in cols), None)
     if order_col:
@@ -136,7 +180,7 @@ def parse_orders(df: pd.DataFrame, max_rows: int = 300_000) -> dict:
     errors = [f"We couldn't find a column for the {NAMES[k]}." for k in REQUIRED if not col[k]]
     if errors:
         errors.append("Columns we found: " + ", ".join(cols[:25]) + ("…" if len(cols) > 25 else "") + ".")
-        raise SimpleError(errors)
+        raise SimpleError(errors, columns_problem=True)
 
     out = pd.DataFrame(index=df.index)
     out["date"] = pd.to_datetime(df[col["date"]].astype(str).str.slice(0, 19), errors="coerce")
@@ -153,7 +197,7 @@ def parse_orders(df: pd.DataFrame, max_rows: int = 300_000) -> dict:
     out["courier"] = (df[col["courier"]].astype(str).str.strip().replace({"": "Your courier", "nan": "Your courier"})
                       if col["courier"] else "Your courier")
     blank = pd.Series("", index=df.index)
-    out["status"] = [_status(a, b, c) for a, b, c in zip(
+    out["status"] = [_status(a, b, c, status_map) for a, b, c in zip(
         df[col["status"]].astype(str) if col["status"] else blank,
         df[col["cancelled"]].astype(str) if col["cancelled"] else blank,
         df[col["financial"]].astype(str) if col["financial"] else blank)]
@@ -166,10 +210,11 @@ def parse_orders(df: pd.DataFrame, max_rows: int = 300_000) -> dict:
     # Shopify lists extra lines (shipping, gift cards) without a size: drop rows we can't use
     bad_date = out.date.isna()
     if bad_date.all():
-        raise SimpleError(["None of the dates could be read. Use a date like 2025-10-03."])
+        raise SimpleError(["None of the dates could be read. Use a date like 2025-10-03."], columns_problem=True)
     no_size = out["size"].isna()
     if no_size.all():
-        raise SimpleError(["We couldn't find sizes. Add a 'size' column, or use names like 'Classic Tee - Black / M'."])
+        raise SimpleError(["We couldn't find sizes. Add a 'size' column, or use names like 'Classic Tee - Black / M'."],
+                          columns_problem=True)
     bad = bad_date | no_size | out.price.isna() | (out.price <= 0) | out.qty.isna() | (out.qty <= 0) | (out.style_id == "")
     if bad.any():
         warnings.append(f"{int(bad.sum())} row(s) without a date, size, price or quantity were skipped.")

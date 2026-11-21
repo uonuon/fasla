@@ -22,7 +22,10 @@ from sqlalchemy import and_, delete, insert, select, update
 from .auth import User, check_pw, current_user, dev_token, hash_pw
 from .config import ROOT, Settings, get_settings
 from .db import brands, dev_users, make_engine, plans
-from .planner import WorkbookError, clean_settings, read_workbook, run_plan_on, template_bytes
+from . import ai
+from .ai_context import plan_context
+from .planner import WorkbookError, clean_settings, read_orders_table, read_workbook, run_plan_on, template_bytes
+from .simple import ai_sample, unknown_statuses
 from .storage import StorageError, make_storage
 
 log = logging.getLogger("fasla")
@@ -109,7 +112,18 @@ if not (NEXT_OUT / "index.html").exists():   # no Next.js build (e.g. tests): ke
 def health():
     with engine.connect() as c:
         c.execute(select(1))
-    return {"ok": True, "config_problems": S.validate()}
+    return {"ok": True, "config_problems": S.validate(), "ai": _ai_status()}
+
+
+def _ai_status() -> str:
+    """Informational only: the site stays healthy when the AI sidecar is down."""
+    if not ai.enabled():
+        return "off"
+    try:
+        import httpx
+        return "up" if httpx.get(f"{S.ai_url}/healthz", timeout=2).status_code == 200 else "down"
+    except Exception:  # noqa: BLE001
+        return "down"
 
 
 # ---------------- dev auth (local testing only) ----------------
@@ -263,9 +277,11 @@ async def upload(bid: uuid.UUID, file: UploadFile = File(...), user: User = Depe
         return JSONResponse({"ok": False, "errors": ["This is not an Excel .xlsx file. Save it again as .xlsx or CSV and retry."]},
                             status_code=422)
     try:
-        parsed = read_workbook(data)
+        parsed, mapping = _smart_parse(data, str(user.id))
     except WorkbookError as e:
         return JSONResponse({"ok": False, "errors": e.errors}, status_code=422)
+    if mapping:
+        parsed["settings"] = {**parsed["settings"], "_mapping": mapping}
     pid = uuid.uuid4()
     path = f"{user.id}/{bid}/{pid}/input.{ext}"
     try:
@@ -283,6 +299,55 @@ async def upload(bid: uuid.UUID, file: UploadFile = File(...), user: User = Depe
                                          input_name=file.filename[:200], input_path=path,
                                          settings=parsed["settings"], checks=parsed["checks"]))
     return {"ok": True, "plan_id": str(pid), "settings": parsed["settings"], "checks": parsed["checks"]}
+
+
+AI_FIELDS = ["date", "style", "size", "color", "qty", "price", "zone", "status", "courier", "cost", "category"]
+
+
+def _smart_parse(data: bytes, user_id: str) -> tuple[dict, dict]:
+    """Read the upload with Fasla's own rules first; if they can't, ask the AI which column is which.
+    Then, if status values aren't recognised (e.g. Arabic), ask the AI to classify them.
+    Returns (parsed, mapping) where mapping is stored with the plan so planning reads the file the same way."""
+    mapping: dict = {}
+    try:
+        parsed = read_workbook(data)
+    except WorkbookError as e:
+        if not (e.columns_problem and ai.enabled()):
+            raise
+        table = read_orders_table(data)
+        if table is None:
+            raise
+        try:
+            res = ai.map_columns(user_id, ai_sample(table), AI_FIELDS)
+        except ai.AIError as ae:
+            raise WorkbookError(e.errors + [f"Our AI couldn't help this time: {ae.message}"])
+        mapping["columns"] = res.get("columns") or {}
+        try:
+            parsed = read_workbook(data, mapping=mapping)
+        except WorkbookError as e2:
+            raise WorkbookError(e2.errors + ["Even with AI help we couldn't read this file. "
+                                             "Rename the columns to date, product, size, price and upload it again."])
+    if parsed["checks"]["stats"].get("mode") == "orders":
+        table = read_orders_table(data)
+        unknown = unknown_statuses(table, mapping.get("columns")) if table is not None else []
+        if unknown and ai.enabled():
+            try:
+                mapping["status"] = ai.map_statuses(user_id, unknown).get("status") or {}
+                parsed = read_workbook(data, mapping=mapping)
+            except ai.AIError as ae:
+                log.warning("status mapping skipped: %s", ae.message)
+        unmapped = [v for v in unknown if v not in (mapping.get("status") or {})]
+        if unmapped:
+            parsed["checks"]["warnings"].append(
+                f"We didn't recognise these status values and counted them as delivered: {', '.join(unmapped[:6])}"
+                + ("…" if len(unmapped) > 6 else "."))
+    return parsed, mapping
+
+
+def _ai_error(e: ai.AIError) -> JSONResponse:
+    code = e.body.get("code", "ai_error")
+    status = e.status if e.status in (400, 413, 429, 502, 503) else 503
+    return JSONResponse({"detail": e.message, "code": code}, status_code=status)
 
 
 def _plan(con, pid: uuid.UUID, user: User):
@@ -403,6 +468,51 @@ def delete_plan(pid: uuid.UUID, user: User = Depends(current_user)):
         con.execute(delete(plans).where(plans.c.id == pid))
     _delete_files([p for p in (r["input_path"], r["report_path"]) if p])
     return Response(status_code=204)
+
+
+# ---------------- AI assistant ----------------
+class AskIn(BaseModel):
+    question: str = Field(min_length=1, max_length=500)
+    history: list[dict] = Field(default_factory=list, max_length=12)
+
+
+def _done_plan(pid: uuid.UUID, user: User):
+    with engine.connect() as con:
+        r = _plan(con, pid, user)
+        b = con.execute(select(brands.c.name).where(brands.c.id == r["brand_id"])).scalar() or "Your brand"
+    if r["status"] != "done" or not r["view"]:
+        raise HTTPException(409, "The plan isn't ready yet.")
+    key = f"{pid}:{r['finished_at'].isoformat() if r['finished_at'] else ''}"
+    return key, plan_context(r["view"], b)
+
+
+@app.get("/api/ai/usage")
+def ai_usage(user: User = Depends(current_user)):
+    if not ai.enabled():
+        return {"enabled": False}
+    try:
+        return {"enabled": True, **ai.usage(str(user.id))}
+    except ai.AIError:
+        return {"enabled": False}
+
+
+@app.post("/api/plans/{pid}/explain")
+def explain_plan(pid: uuid.UUID, user: User = Depends(current_user)):
+    key, ctx = _done_plan(pid, user)
+    try:
+        return ai.explain(str(user.id), key, ctx)
+    except ai.AIError as e:
+        return _ai_error(e)
+
+
+@app.post("/api/plans/{pid}/ask")
+def ask_plan(pid: uuid.UUID, body: AskIn, user: User = Depends(current_user)):
+    key, ctx = _done_plan(pid, user)
+    history = [{"role": str(m.get("role", "")), "text": str(m.get("text", ""))[:1500]} for m in body.history[-6:]]
+    try:
+        return ai.ask(str(user.id), key, ctx, body.question.strip(), history)
+    except ai.AIError as e:
+        return _ai_error(e)
 
 
 app.mount("/static", StaticFiles(directory=str(ROOT / "web")), name="static")
