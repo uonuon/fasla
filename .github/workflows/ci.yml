@@ -43,6 +43,26 @@ jobs:
       - name: Run tests
         run: python -m pytest tests -q
 
+  web:
+    name: Front end (lint, types, build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web-next
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web-next/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx eslint src
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
   docker:
     name: Docker image builds
     runs-on: ubuntu-24.04
@@ -60,7 +80,7 @@ jobs:
 
   deploy:
     name: Deploy to AWS (eu-north-1)
-    needs: [test, docker]
+    needs: [test, web, docker]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -100,7 +120,9 @@ jobs:
           URL=$(node -e "console.log(require('./cdk-outputs.json').FaslaApp.AppUrl)")
           echo "App: $URL" >> "$GITHUB_STEP_SUMMARY"
           for i in $(seq 1 20); do
-            if curl -fsS "$URL/healthz" | tee /tmp/health.json | grep -q '"ok":true'; then
+            if curl -fsS "$URL/healthz" | tee /tmp/health.json | grep -q '"ok":true' \
+               && curl -fsS "$URL/" | grep -q 'plan your next season' \
+               && curl -fsS "$URL/api/config" | grep -q '"authMode"'; then
               cat /tmp/health.json; exit 0
             fi
             sleep 15

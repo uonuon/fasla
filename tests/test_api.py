@@ -164,3 +164,11 @@ def test_brand_rules(client):
 def test_config_and_health(client):
     assert "authMode" in client.get("/config.js").text
     assert client.get("/healthz").json()["ok"] is True
+
+
+def test_public_config_and_pages(client):
+    cfg = client.get("/api/config").json()
+    assert cfg["authMode"] == "dev" and "supabaseAnonKey" in cfg and "maxUploadMb" in cfg
+    assert "FASLA_CONFIG" in client.get("/config.js").text
+    assert client.get("/").status_code == 200          # Next.js build if present, else the classic page
+    assert client.get("/classic").status_code == 200

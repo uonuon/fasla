@@ -73,16 +73,36 @@ app.middleware("http")(security_headers)
 
 
 # ---------------- frontend ----------------
+NEXT_OUT = ROOT / "web-next" / "out"   # the Next.js static export (built in the Docker image)
+
+
+def _public_config() -> dict:
+    return dict(authMode=S.auth_mode, supabaseUrl=S.supabase_url, supabaseAnonKey=S.supabase_anon_key,
+                googleLogin=S.google_login, maxUploadMb=S.max_upload_mb)
+
+
 @app.get("/config.js", response_class=PlainTextResponse)
 def config_js():
-    cfg = dict(authMode=S.auth_mode, supabaseUrl=S.supabase_url, supabaseAnonKey=S.supabase_anon_key,
-               googleLogin=S.google_login, maxUploadMb=S.max_upload_mb)
-    return PlainTextResponse("window.FASLA_CONFIG=" + json.dumps(cfg) + ";", media_type="application/javascript")
+    return PlainTextResponse("window.FASLA_CONFIG=" + json.dumps(_public_config()) + ";", media_type="application/javascript")
 
 
-@app.get("/", response_class=HTMLResponse)
-def index():
+@app.get("/api/config")
+def api_config():
+    return _public_config()
+
+
+def _classic():
     return HTMLResponse((ROOT / "web" / "index.html").read_text(encoding="utf-8"))
+
+
+@app.get("/classic", response_class=HTMLResponse)
+@app.get("/classic/", response_class=HTMLResponse)
+def classic_index():
+    return _classic()
+
+
+if not (NEXT_OUT / "index.html").exists():   # no Next.js build (e.g. tests): keep serving the classic page at /
+    app.get("/", response_class=HTMLResponse)(_classic)
 
 
 @app.get("/healthz")
@@ -367,3 +387,5 @@ def delete_plan(pid: uuid.UUID, user: User = Depends(current_user)):
 
 
 app.mount("/static", StaticFiles(directory=str(ROOT / "web")), name="static")
+if (NEXT_OUT / "index.html").exists():
+    app.mount("/", StaticFiles(directory=str(NEXT_OUT), html=True), name="next")

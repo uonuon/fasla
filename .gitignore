@@ -6,3 +6,7 @@ __pycache__/
 *.pyc
 *.zip
 .DS_Store
+web-next/node_modules/
+web-next/.next/
+web-next/out/
+web-next/next-env.d.ts
