@@ -1,0 +1,27 @@
+# Render blueprint: New > Blueprint, point it at this repo, then fill in the secret values.
+services:
+  - type: web
+    name: fasla
+    runtime: docker
+    plan: starter          # planning uses ~1 CPU for 30-90 s; the free plan sleeps and is slow
+    healthCheckPath: /healthz
+    autoDeployTrigger: checksPass   # deploy main only after the CI checks are green
+    envVars:
+      - key: AUTH_MODE
+        value: supabase
+      - key: STORAGE_MODE
+        value: supabase
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_JWT_SECRET   # only for older projects that use the legacy JWT secret
+        sync: false
+      - key: GOOGLE_LOGIN
+        value: "false"
+      - key: PLAN_WORKERS
+        value: "1"

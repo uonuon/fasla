@@ -1,0 +1,64 @@
+"""All settings come from environment variables (see .env.example)."""
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def _load_dotenv(path: Path = ROOT / ".env") -> None:
+    """Read KEY=VALUE lines from .env without overriding real environment variables."""
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        v = v.split(" #", 1)[0].strip().strip('"').strip("'")
+        os.environ.setdefault(k.strip(), v)
+
+
+_load_dotenv()
+
+
+def _env(name: str, default: str = "") -> str:
+    return os.environ.get(name, default).strip()
+
+
+@dataclass(frozen=True)
+class Settings:
+    # "supabase" in production; "dev" uses a built-in email/password login for local testing only
+    auth_mode: str = _env("AUTH_MODE", "supabase")
+    storage_mode: str = _env("STORAGE_MODE", "supabase")       # supabase | local
+    supabase_url: str = _env("SUPABASE_URL").rstrip("/")
+    supabase_anon_key: str = _env("SUPABASE_ANON_KEY")
+    supabase_service_key: str = _env("SUPABASE_SERVICE_ROLE_KEY")
+    supabase_jwt_secret: str = _env("SUPABASE_JWT_SECRET")      # only for projects still on the legacy HS256 secret
+    supabase_bucket: str = _env("SUPABASE_BUCKET", "fasla-files")
+    google_login: bool = _env("GOOGLE_LOGIN", "0") == "1"
+    database_url: str = _env("DATABASE_URL", f"sqlite:///{ROOT / 'data' / 'fasla.db'}")
+    local_storage_dir: str = _env("LOCAL_STORAGE_DIR", str(ROOT / "data" / "files"))
+    dev_secret: str = _env("DEV_JWT_SECRET", "dev-only-secret-change-me-0123456789")
+    max_upload_mb: int = int(_env("MAX_UPLOAD_MB", "10"))
+    workers: int = int(_env("PLAN_WORKERS", "2"))
+    solver_seconds: int = int(_env("SOLVER_SECONDS", "25"))
+    public_url: str = _env("PUBLIC_URL", "")
+
+    def validate(self) -> list[str]:
+        probs = []
+        if self.auth_mode == "supabase":
+            for k, v in [("SUPABASE_URL", self.supabase_url), ("SUPABASE_ANON_KEY", self.supabase_anon_key)]:
+                if not v:
+                    probs.append(f"{k} is not set")
+        if self.storage_mode == "supabase" and not self.supabase_service_key:
+            probs.append("SUPABASE_SERVICE_ROLE_KEY is not set (needed for file storage)")
+        if self.auth_mode == "dev" and (self.storage_mode == "supabase" or self.supabase_service_key):
+            probs.append("AUTH_MODE=dev is for local testing only; use AUTH_MODE=supabase with Supabase keys")
+        return probs
+
+
+def get_settings() -> Settings:
+    return Settings()

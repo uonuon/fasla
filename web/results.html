@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fasla plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a tailor's cutting mat. One deep-green gridded band holds the decision; quiet white cards below explain it. */
+:root{
+  --paper:#F2F4F0; --card:#FFFFFF; --ink:#13201B; --ink2:#53625B; --ink3:#86938C; --line:#DCE3DB;
+  --mat:#1D4A3E; --mat2:#2A5D4F; --chalk:#E6AE3E; --bad:#C0533D; --good:#2E7D57; --blue:#3A6EA5;
+  --display:"Bricolage Grotesque","Rubik",system-ui,sans-serif; --body:"Rubik",system-ui,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--body)}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--chalk);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+header.top{display:flex;align-items:center;gap:14px;padding:16px 0;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;font:800 19px/1 var(--display);letter-spacing:-.01em}
+.logo small{display:block;font:500 12px/1.2 var(--body);color:var(--ink3);margin-top:3px;letter-spacing:0}
+.spacer{flex:1}
+.badge{font-size:12px;padding:5px 10px;border-radius:999px;background:#FBF1DC;color:#7A5513;border:1px solid #EFD9A8}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--ink3)}
+.btn.primary{background:var(--mat);border-color:var(--mat);color:#fff}
+/* hero band */
+.mat{background:var(--mat);color:#EEF3EF;border-radius:22px;padding:28px 30px 26px;position:relative;overflow:hidden;
+  background-image:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px),
+  linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);
+  background-size:120px 120px,120px 120px,24px 24px,24px 24px}
+.mat .eyebrow{font:600 12px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:#A9C4B9}
+.mat h1{font:800 clamp(28px,3.6vw,44px)/1.08 var(--display);margin:12px 0 6px;letter-spacing:-.02em;text-wrap:balance;max-width:24ch}
+.mat h1 em{font-style:normal;color:var(--chalk)}
+.mat p.sub{margin:0;color:#BFD3CA;max-width:62ch}
+.slider{margin-top:22px;display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;background:rgba(0,0,0,.18);border-radius:14px;padding:14px 16px}
+.slider label{font-weight:500;color:#DCE8E2;font-size:14px}
+.slider output{font:700 20px/1 var(--display);color:var(--chalk);font-variant-numeric:tabular-nums;min-width:120px;text-align:end}
+input[type=range]{width:100%;accent-color:var(--chalk)}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:16px}
+.kpi{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px 14px}
+.kpi b{display:block;font:700 24px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.kpi span{font-size:12.5px;color:#BFD3CA}
+.kpi.warn b{color:#F2A08F}
+/* sections */
+section.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;margin-top:18px}
+.grid2{display:grid;grid-template-columns:1.1fr 1fr;gap:18px;margin-top:18px}
+.grid2>section.card{margin-top:0}
+h2{font:700 21px/1.2 var(--display);margin:0 0 4px;letter-spacing:-.01em}
+.lead{margin:0 0 16px;color:var(--ink2);max-width:70ch}
+.cmp{display:grid;gap:14px}
+.cmp .row{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:center}
+.cmp .lbl{font-size:13.5px;color:var(--ink2)}
+.bars{display:grid;gap:5px}
+.bar{display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;font-size:12.5px}
+.bar i{display:block;height:12px;border-radius:0 4px 4px 0;min-width:2px}
+.bar b{font-variant-numeric:tabular-nums;font-weight:600;text-align:end}
+.legend{display:flex;gap:16px;font-size:12.5px;color:var(--ink2);margin-top:10px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:6px;vertical-align:-1px}
+.verdict{margin-top:14px;padding:12px 14px;background:#EEF6F1;border-radius:12px;font-size:14px}
+.verdict b{color:var(--good)}
+svg text{font-family:var(--body)}
+svg.chart{direction:ltr}
+.chart{width:100%;height:auto;display:block}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:#fff;font-size:12.5px;padding:7px 10px;border-radius:8px;z-index:20;display:none;line-height:1.4;font-variant-numeric:tabular-nums}
+/* plan table */
+.tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.tbl th{font:600 11.5px/1.2 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);text-align:start;padding:0 8px 10px;white-space:nowrap}
+.tbl td{padding:12px 8px;border-top:1px solid var(--line);vertical-align:middle}
+.tbl .num{text-align:end}
+.tbl tr.style{cursor:pointer}
+.tbl tr.style:hover td{background:#F8FAF7}
+.name b{display:block;font-weight:600}
+.chip{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;background:#EDF1EC;color:var(--ink2);margin-top:3px}
+.chip.new{background:#FBF1DC;color:#7A5513}
+.sizes{display:flex;gap:2px;align-items:flex-end;height:30px}
+.sizes span{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--ink3)}
+.sizes i{display:block;width:16px;background:var(--mat2);border-radius:3px 3px 0 0;min-height:2px}
+.detail td{background:#FAFBF9;padding:10px 8px 16px}
+.mini{border-collapse:collapse;font-size:13px}
+.mini th,.mini td{padding:4px 10px;text-align:end}
+.mini th:first-child,.mini td:first-child{text-align:start}
+.mini th{color:var(--ink3);font-weight:500}
+.mini .usual{color:var(--ink3)}
+.risk{font-size:12.5px;color:var(--ink2)}
+/* couriers */
+.zone{display:grid;grid-template-columns:130px 1fr 110px 120px;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--line)}
+.zone:first-of-type{border-top:0}
+.zone .z b{display:block}
+.zone .z span{font-size:12.5px;color:var(--ink3)}
+.alts{display:grid;gap:4px}
+.alt{display:grid;grid-template-columns:96px 1fr 44px;gap:8px;align-items:center;font-size:12.5px;color:var(--ink2)}
+.alt .track{height:8px;background:#EEF1ED;border-radius:4px;position:relative}
+.alt .track i{position:absolute;inset-block:0;inset-inline-start:0;border-radius:4px;background:#B9C7BF}
+.alt.pick{color:var(--ink);font-weight:600}
+.alt.pick .track i{background:var(--mat)}
+.change{font-size:12.5px}
+.change .up{color:var(--good);font-weight:600}
+.flag{display:grid;gap:4px;padding:14px;border:1px solid #F0D5CD;background:#FDF4F1;border-radius:12px;margin-bottom:10px}
+.flag b{color:var(--bad)}
+.ok{padding:12px 14px;border:1px solid var(--line);border-radius:12px;color:var(--ink2);font-size:14px}
+.notes{color:var(--ink2);font-size:14px;margin:12px 0 0;padding-inline-start:18px}
+.notes li{margin:4px 0}
+footer{color:var(--ink3);font-size:12.5px;padding:26px 0 40px;max-width:80ch}
+/* upload */
+.drop{display:none;border:2px dashed var(--line);border-radius:16px;padding:20px;text-align:center;color:var(--ink2);margin-top:18px;background:var(--card)}
+.app .drop{display:block}
+.drop.busy{opacity:.6;pointer-events:none}
+.status{margin-top:8px;font-size:13.5px}
+@media (max-width:900px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .grid2{grid-template-columns:1fr}
+  .zone{grid-template-columns:1fr 1fr}
+  .zone .alts{grid-column:1/-1}
+  .hide-sm{display:none}
+  .slider{grid-template-columns:1fr;gap:8px}
+  .slider output{text-align:start}
+}
+@media (max-width:560px){ .tbl td{padding:10px 4px} .tbl .chip{display:none} .name b{font-size:14px} .mat{padding:22px 18px} section.card{padding:18px 16px} .cmp .row{grid-template-columns:1fr} }
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.embed header.top,.embed .drop{display:none!important}
+.embed body{background:transparent}
+.embed .wrap{padding:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">
+      <svg width="34" height="34" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="26" fill="#1D4A3E"/><circle cx="54" cy="40" r="17" fill="#E6AE3E"/><path d="M68 46 C 68 64, 58 76, 40 82" fill="none" stroke="#E6AE3E" stroke-width="11" stroke-linecap="round"/></svg>
+      <div><span data-t="app"></span><small id="brandName"></small></div>
+    </div>
+    <span class="badge" id="simBadge" hidden></span>
+    <div class="spacer"></div>
+    <button class="btn" id="lang">ع</button>
+  </header>
+
+  <div class="mat" id="hero">
+    <div class="eyebrow" data-t="eyebrow"></div>
+    <h1 id="headline"></h1>
+    <p class="sub" id="subline"></p>
+    <div class="slider">
+      <label for="budget" data-t="cashLabel"></label>
+      <input type="range" id="budget" min="0" max="7" step="1" value="4">
+      <output id="budgetOut" for="budget"></output>
+    </div>
+    <div class="kpis" id="kpis"></div>
+  </div>
+
+  <div class="drop" id="drop">
+    <b data-t="upTitle"></b>
+    <p style="margin:6px 0 10px" data-t="upText"></p>
+    <input type="file" id="file" accept=".xlsx">
+    <a class="btn" href="/template" data-t="tmpl" style="text-decoration:none;margin-inline-start:8px"></a>
+    <a class="btn" id="dl" href="#" data-t="report" style="text-decoration:none;margin-inline-start:8px"></a>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="grid2">
+    <section class="card">
+      <h2 data-t="vsTitle"></h2>
+      <p class="lead" data-t="vsLead"></p>
+      <div class="cmp" id="cmp"></div>
+      <div class="legend"><span><i style="background:#B9C7BF"></i><span data-t="usual"></span></span><span><i style="background:var(--mat)"></i><span data-t="planner"></span></span></div>
+      <div class="verdict" id="verdict"></div>
+    </section>
+    <section class="card">
+      <h2 data-t="curveTitle"></h2>
+      <p class="lead" data-t="curveLead"></p>
+      <svg class="chart" id="curve" viewBox="0 0 520 280" role="img" aria-label="Profit by production budget"></svg>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2 data-t="planTitle"></h2>
+    <p class="lead" data-t="planLead"></p>
+    <div style="overflow-x:auto">
+      <table class="tbl" id="plan"></table>
+    </div>
+    <div class="legend"><span><i style="background:#CFE0D8"></i><span data-t="lgRange"></span></span><span><i style="background:var(--ink);border-radius:50%"></i><span data-t="lgMean"></span></span><span><i style="background:var(--chalk);transform:rotate(45deg)"></i><span data-t="lgPlan"></span></span></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <h2 data-t="courTitle"></h2>
+      <p class="lead" id="courLead"></p>
+      <div id="zones"></div>
+    </section>
+    <section class="card">
+      <h2 data-t="retTitle"></h2>
+      <p class="lead" data-t="retLead"></p>
+      <div id="flags"></div>
+      <h3 style="font:600 14px/1.3 var(--body);margin:18px 0 8px" data-t="refTitle"></h3>
+      <div class="bars" id="refusals"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2 data-t="cashTitle"></h2>
+    <p class="lead" id="cashLead"></p>
+    <svg class="chart" id="cash" viewBox="0 0 1100 300" role="img" aria-label="Weekly cash balance"></svg>
+  </section>
+
+  <section class="card" id="sureCard">
+    <h2 data-t="sureTitle"></h2>
+    <p class="lead" data-t="sureLead"></p>
+    <div class="bars" id="sure"></div>
+    <ul class="notes">
+      <li data-t="n1"></li><li data-t="n2"></li><li data-t="n3"></li><li data-t="n4"></li>
+    </ul>
+  </section>
+
+  <footer data-t="foot"></footer>
+</div>
+<div class="tip" id="tip"></div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+// Embedded in the Fasla app: data and language come from the parent page
+const EMBED=new URLSearchParams(location.search).has("embed");
+if(EMBED)document.documentElement.classList.add("embed");
+</script>
+<script>
+const T={
+en:{app:"Fasla",eyebrow:"Next season's production plan",cashLabel:"Production cash",
+ head:"Produce <em>{u}</em> pieces for EGP {c}. Expected profit EGP {p}.",
+ sub:"Based on {o} past orders over {s} seasons. {so} size-colour items sold out early, so their real demand was estimated, not copied.",
+ k1:"Expected profit",k2:"Bad season (1 in 10)",k3:"Pieces left at season end",k4:"Sales missed (sold out)",k5:"Lowest bank balance",
+ week:"week {w}",sim:"Made-up example brand",
+ upTitle:"Plan your own brand",upText:"Upload your filled input workbook. Planning takes 1–3 minutes.",tmpl:"Download template",report:"Download Excel report",
+ vsTitle:"Planner vs your usual way",vsLead:"Same cash, same styles. Your usual way: your own estimate per style, colours split evenly, sizes 15/25/25/20/15%. Scored on 800 simulated seasons.",
+ usual:"Usual way",planner:"Planner",r1:"Expected profit",r2:"Pieces left over",r3:"Sales missed",
+ verdict:"<b>+EGP {d}</b> expected profit ({pct}) with the same cash, mostly from putting pieces in the sizes and colours that actually sell.",
+ curveTitle:"What more cash buys",curveLead:"Expected profit for each production budget. Past a point, extra pieces mostly end up as leftovers, and the bank balance dips below zero.",
+ cvProfit:"Expected profit",cvCash:"Lowest bank balance",
+ planTitle:"What to produce",planLead:"Click a style to see every colour and size. The bar shows the likely range of sales next season; the diamond is how many to make.",
+ thStyle:"Style",thRange:"Likely sales range",thPlan:"Make",thSizes:"By size",thCash:"Cash",thLeft:"Expected left",thOut:"Chance to sell out",
+ src_own:"own history",src_new:"new: similar styles",src_owner:"+ your estimate",
+ lgRange:"80% of seasons fall in this range",lgMean:"expected",lgPlan:"planned",
+ colColor:"Colour",colUsual:"usual way",
+ courTitle:"Courier for each area",courLead:"Profit per COD order today EGP {a} → EGP {b} by choosing per area, about EGP {t} over {n} orders a season.",
+ now:"now",keep:"keep",switchTo:"switch",ordersN:"{n} past orders",perOrder:"/order",
+ retTitle:"Size exchanges and refusals",retLead:"Styles where customers send pieces back for another size far more than average point to a sizing problem.",
+ flagTxt:"{r} of delivered pieces exchanged (brand average {b}). Worst size: {z} at {zr}. Check the size chart or the pattern.",
+ noFlags:"No style stands out for size exchanges.",refTitle:"COD refused at the door, by area",
+ cashTitle:"Cash through the season",cashLead:"Factory deposit now, balance when stock arrives in week {l}, COD cash back about a week after each sale. Lowest point: EGP {m} in week {w}.",
+ wk:"Week",dep:"deposit",bal:"balance paid",
+ sureTitle:"How sure is this?",sureLead:"We tested the planner on 8 made-up brands against plans owners typically make, with the same cash, on seasons the planner never saw.",
+ b_best:"Perfect plan (knows the future)",b_opt:"Planner (data + owner estimate)",b_data:"Planner, data only",b_A:"Owner with good gut feel",b_B:"Owner repeating last season +15%",
+ n1:"Results come from simulation, not yet from a real brand.",n2:"The planner needs your own estimate for new styles; data alone is weak there.",
+ n3:"In a season 30% weaker than expected the gain shrinks to about 1.5%.",n4:"Refused parcels are assumed to return to stock at once; in reality they take 1–2 weeks.",
+ foot:"Method: demand forecast that corrects for sold-out sizes and blends your estimate with your data; production quantities from a stochastic newsvendor model solved as a mixed-integer program with your cash and factory minimums; courier choice from delivery rates learned from your own orders.",
+ running:"Planning… this takes 1–3 minutes.",done:"Done. Showing your plan.",fail:"Something went wrong: {e}"},
+ar:{app:"فاصلة",eyebrow:"خطة إنتاج الموسم القادم",cashLabel:"ميزانية الإنتاج",
+ head:"اصنع <em>{u}</em> قطعة بتكلفة {c} جنيه. الربح المتوقع {p} جنيه.",
+ sub:"مبني على {o} أوردر سابق في {s} مواسم. {so} مقاس ولون خلصوا بدري، فقدّرنا طلبهم الحقيقي بدل ما ننسخ المبيعات.",
+ k1:"الربح المتوقع",k2:"موسم سيئ (١ من ١٠)",k3:"قطع متبقية آخر الموسم",k4:"مبيعات ضاعت (نفد المخزون)",k5:"أقل رصيد في البنك",
+ week:"أسبوع {w}",sim:"براند تجريبي غير حقيقي",
+ upTitle:"خطط لبراندك",upText:"ارفع ملف الإدخال بعد ما تملاه. التخطيط بياخد من ١ لـ٣ دقايق.",tmpl:"تحميل النموذج",report:"تحميل تقرير إكسل",
+ vsTitle:"المخطط مقابل طريقتك المعتادة",vsLead:"نفس الفلوس ونفس الموديلات. طريقتك المعتادة: تقديرك لكل موديل، الألوان بالتساوي، والمقاسات ١٥/٢٥/٢٥/٢٠/١٥٪. التقييم على ٨٠٠ موسم محاكى.",
+ usual:"الطريقة المعتادة",planner:"المخطط",r1:"الربح المتوقع",r2:"قطع متبقية",r3:"مبيعات ضاعت",
+ verdict:"<b>+{d} جنيه</b> ربح متوقع ({pct}) بنفس الفلوس، أغلبه من توزيع القطع على المقاسات والألوان اللي بتتباع فعلًا.",
+ curveTitle:"الفلوس الزيادة بتجيب إيه",curveLead:"الربح المتوقع لكل ميزانية إنتاج. بعد حد معين، القطع الزيادة بتفضل متبقية، ورصيد البنك بينزل تحت الصفر.",
+ cvProfit:"الربح المتوقع",cvCash:"أقل رصيد في البنك",
+ planTitle:"تصنع إيه",planLead:"اضغط على أي موديل تشوف كل لون ومقاس. الشريط هو المدى المتوقع للمبيعات، والمعين هو الكمية المقترحة.",
+ thStyle:"الموديل",thRange:"مدى المبيعات المتوقع",thPlan:"اصنع",thSizes:"حسب المقاس",thCash:"التكلفة",thLeft:"متبقي متوقع",thOut:"احتمال يخلص",
+ src_own:"من تاريخك",src_new:"جديد: موديلات مشابهة",src_owner:"+ تقديرك",
+ lgRange:"٨٠٪ من المواسم في المدى ده",lgMean:"المتوقع",lgPlan:"المخطط",
+ colColor:"اللون",colUsual:"المعتاد",
+ courTitle:"شركة الشحن لكل منطقة",courLead:"الربح لكل أوردر عند الاستلام النهارده {a} جنيه ← {b} جنيه لو اخترت لكل منطقة، حوالي {t} جنيه على {n} أوردر في الموسم.",
+ now:"الحالي",keep:"استمر",switchTo:"غيّر",ordersN:"{n} أوردر سابق",perOrder:"/أوردر",
+ retTitle:"استبدال المقاسات والرفض",retLead:"الموديلات اللي الناس بترجعها لمقاس تاني أكتر بكتير من المتوسط غالبًا فيها مشكلة في المقاسات.",
+ flagTxt:"{r} من القطع المسلّمة اتبدلت (متوسط البراند {b}). أسوأ مقاس: {z} بنسبة {zr}. راجع جدول المقاسات أو الباترون.",
+ noFlags:"مفيش موديل بيتبدل أكتر من الطبيعي.",refTitle:"رفض الاستلام عند الباب حسب المنطقة",
+ cashTitle:"الفلوس طول الموسم",cashLead:"عربون للمصنع دلوقتي، الباقي لما البضاعة توصل أسبوع {l}، وفلوس الاستلام بترجع بعد أسبوع من كل بيعة. أقل نقطة: {m} جنيه في أسبوع {w}.",
+ wk:"أسبوع",dep:"عربون",bal:"باقي المصنع",
+ sureTitle:"الأرقام دي مضمونة قد إيه؟",sureLead:"جربنا المخطط على ٨ براندات تجريبية مقابل طرق أصحاب البراندات المعتادة، بنفس الفلوس، على مواسم ما شافهاش.",
+ b_best:"الخطة المثالية (تعرف المستقبل)",b_opt:"المخطط (بيانات + تقديرك)",b_data:"المخطط بالبيانات بس",b_A:"صاحب براند حدسه كويس",b_B:"صاحب براند بيكرر الموسم اللي فات +١٥٪",
+ n1:"النتائج من محاكاة، لسه مش من براند حقيقي.",n2:"المخطط محتاج تقديرك للموديلات الجديدة؛ البيانات لوحدها ضعيفة فيها.",
+ n3:"لو الموسم أضعف ٣٠٪ من المتوقع، المكسب بيقل لحوالي ١٫٥٪.",n4:"افترضنا إن المرتجعات بترجع المخزن فورًا؛ في الحقيقة بتاخد أسبوع أو اتنين.",
+ foot:"الطريقة: توقع طلب بيصحح المقاسات اللي خلصت ويدمج تقديرك مع بياناتك؛ كميات الإنتاج من نموذج بائع الجرائد العشوائي محلول كبرنامج صحيح مختلط بحدود الفلوس والمصنع؛ اختيار شركة الشحن من نسب التسليم المتعلّمة من أوردراتك.",
+ running:"جاري التخطيط… من ١ لـ٣ دقايق.",done:"تم. دي خطتك.",fail:"حصلت مشكلة: {e}"}};
+
+let D=null, L="en", V=4, open=new Set();
+const $=id=>document.getElementById(id);
+const tr=(k,v={})=>{let s=(T[L][k]??T.en[k]??k);for(const[a,b]of Object.entries(v))s=s.replaceAll("{"+a+"}",b);return s};
+const fmt=n=>Math.round(n).toLocaleString("en-US");
+const M=n=>Math.abs(n)<0.5?"0":Math.abs(n)>=1e6?(n/1e6).toFixed(2)+"M":Math.abs(n)>=1e4?Math.round(n/1e3)+"K":fmt(n);
+const pct=x=>(x*100).toFixed(1)+"%";
+const tip=$("tip");
+function showTip(e,html){tip.innerHTML=html;tip.style.display="block";const x=Math.min(innerWidth-200,e.clientX+14);tip.style.left=x+"px";tip.style.top=(e.clientY+14)+"px"}
+function hideTip(){tip.style.display="none"}
+
+function render(){
+  document.documentElement.lang=L;document.documentElement.dir=L==="ar"?"rtl":"ltr";
+  document.querySelectorAll("[data-t]").forEach(e=>e.innerHTML=tr(e.dataset.t));
+  $("lang").textContent=L==="ar"?"EN":"ع";
+  if(!D)return;
+  const v=D.variants[V];
+  $("brandName").textContent=D.brand;
+  $("simBadge").hidden=!D.simulated;$("simBadge").textContent=tr("sim");
+  $("budget").max=D.variants.length-1;$("budget").value=V;
+  $("budgetOut").textContent="EGP "+M(v.budget);
+  $("headline").innerHTML=tr("head",{u:fmt(v.units),c:M(v.cash_used),p:M(v.profit)});
+  $("subline").textContent=tr("sub",{o:fmt(D.history.orders),s:D.history.seasons,so:D.history.soldout});
+  $("kpis").innerHTML=[["k1",M(v.profit)],["k2",M(v.p10)],["k3",fmt(v.leftover)],["k4",fmt(v.lost)],["k5",M(v.cash_min)+` <span style="font:500 12px var(--body);color:#BFD3CA">${tr("week",{w:v.cash_min_week})}</span>`,v.cash_min<0]]
+    .map(([k,val,w])=>`<div class="kpi${w?" warn":""}"><b>${val}</b><span>${tr(k)}</span></div>`).join("");
+  renderCmp(v);renderCurve();renderPlan(v);renderCouriers();renderReturns();renderCash(v);renderSure();
+}
+
+function renderCmp(v){
+  const u=D.usual,rows=[["r1",u.profit,v.profit,true],["r2",u.leftover,v.leftover,false],["r3",u.lost,v.lost,false]];
+  $("cmp").innerHTML=rows.map(([k,a,b])=>{const mx=Math.max(a,b)*1.08;
+    return`<div class="row"><div class="lbl">${tr(k)}</div><div class="bars">
+      <div class="bar"><i style="width:${a/mx*100}%;background:#B9C7BF"></i><b>${k==="r1"?"EGP "+M(a):fmt(a)}</b></div>
+      <div class="bar"><i style="width:${b/mx*100}%;background:var(--mat)"></i><b>${k==="r1"?"EGP "+M(b):fmt(b)}</b></div></div></div>`}).join("");
+  const base=D.variants[D.base];
+  $("verdict").innerHTML=tr("verdict",{d:M(base.profit-u.profit),pct:"+"+pct((base.profit-u.profit)/u.profit)});
+}
+
+function renderCurve(){
+  const W=520,H=280,pl=62,pr=16,pt=16,pb=46,vs=D.variants;
+  const xs=vs.map(v=>v.budget),ys=vs.map(v=>v.profit),cs=vs.map(v=>v.cash_min);
+  const x0=Math.min(...xs),x1=Math.max(...xs);
+  const ymin=Math.min(0,...cs),ymax=Math.max(...ys)*1.08;
+  const X=x=>pl+(x-x0)/(x1-x0)*(W-pl-pr),Y=y=>pt+(ymax-y)/(ymax-ymin)*(H-pt-pb);
+  let g="";
+  const step=ymax>2e6?1e6:5e5;
+  for(let y=Math.ceil(ymin/step)*step;y<=ymax;y+=step){g+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(y)}" y2="${Y(y)}" stroke="${y===0?"#9AA8A0":"#E6ECE5"}" stroke-width="${y===0?1.2:1}"/><text x="${pl-8}" y="${Y(y)+4}" text-anchor="end" font-size="11" fill="#86938C">${M(y)}</text>`}
+  xs.forEach((x,i)=>{if(i%2===0||i===vs.length-1)g+=`<text x="${X(x)}" y="${H-pb+18}" text-anchor="middle" font-size="11" fill="#86938C">${M(x)}</text>`});
+  g+=`<text x="${(pl+W-pr)/2}" y="${H-6}" text-anchor="middle" font-size="11.5" fill="#53625B">${tr("cashLabel")} (EGP)</text>`;
+  const neg=vs.findIndex(v=>v.cash_min<0);
+  if(neg>=0){const xa=X((xs[neg-1]+xs[neg])/2);g+=`<rect x="${xa}" y="${pt}" width="${W-pr-xa}" height="${H-pt-pb}" fill="#C0533D" opacity=".06"/>`}
+  const path=a=>a.map((y,i)=>(i?"L":"M")+X(xs[i])+","+Y(y)).join(" ");
+  g+=`<path d="${path(ys)} L${X(x1)},${Y(Math.max(0,ymin))} L${X(x0)},${Y(Math.max(0,ymin))}Z" fill="#1D4A3E" opacity=".07"/>`;
+  g+=`<path d="${path(ys)}" fill="none" stroke="#1D4A3E" stroke-width="2.4"/>`;
+  g+=`<path d="${path(cs)}" fill="none" stroke="#C0533D" stroke-width="2" stroke-dasharray="5 4"/>`;
+  vs.forEach((v,i)=>{g+=`<circle cx="${X(v.budget)}" cy="${Y(v.profit)}" r="${i===V?7:4}" fill="${i===V?"#E6AE3E":"#1D4A3E"}" stroke="#fff" stroke-width="2"/>`});
+  g+=`<text x="${X(xs[vs.length-1])-4}" y="${Y(ys[vs.length-1])-12}" text-anchor="end" font-size="12" font-weight="600" fill="#1D4A3E">${tr("cvProfit")}</text>`;
+  g+=`<text x="${X(xs[0])+8}" y="${Y(cs[0])-10}" text-anchor="start" font-size="12" font-weight="600" fill="#C0533D">${tr("cvCash")}</text>`;
+  vs.forEach((v,i)=>{const w=(W-pl-pr)/(vs.length-1);g+=`<rect class="hit" data-i="${i}" x="${X(v.budget)-w/2}" y="${pt}" width="${w}" height="${H-pt-pb}" fill="transparent" style="cursor:pointer"/>`});
+  const svg=$("curve");svg.innerHTML=g;
+  svg.querySelectorAll(".hit").forEach(r=>{const v=vs[+r.dataset.i];
+    r.onmousemove=e=>showTip(e,`${tr("cashLabel")}: EGP ${fmt(v.budget)}<br>${tr("cvProfit")}: EGP ${fmt(v.profit)}<br>${tr("cvCash")}: EGP ${fmt(v.cash_min)}`);
+    r.onmouseleave=hideTip;r.onclick=()=>{V=+r.dataset.i;render()}});
+}
+
+function renderPlan(v){
+  const sizes=D.sizes,byStyle={};
+  D.sku.forEach((k,i)=>{(byStyle[k.s]=byStyle[k.s]||[]).push(i)});
+  const st=Object.fromEntries(v.style.map(s=>[s.id,s]));
+  const mx=Math.max(...D.styles.map(s=>Math.max(s.f_p90,st[s.id].planned)))*1.05;
+  let h=`<thead><tr><th>${tr("thStyle")}</th><th style="min-width:${innerWidth<600?100:220}px">${tr("thRange")}</th><th class="num">${tr("thPlan")}</th><th class="hide-sm">${tr("thSizes")}</th><th class="num hide-sm">${tr("thCash")}</th><th class="num hide-sm">${tr("thLeft")}</th><th class="num">${tr("thOut")}</th></tr></thead><tbody>`;
+  for(const s of D.styles){
+    const idx=byStyle[s.id],sv=st[s.id];
+    const bySize=sizes.map(z=>idx.filter(i=>D.sku[i].z===z).reduce((a,i)=>a+v.Q[i],0));
+    const smax=Math.max(1,...bySize);
+    const src=s.source.includes("new")?`<span class="chip new">${tr("src_new")}${s.source.includes("owner")?" "+tr("src_owner"):""}</span>`:`<span class="chip">${tr("src_own")}${s.source.includes("owner")?" "+tr("src_owner"):""}</span>`;
+    const W=innerWidth<600?96:220,X=x=>x/mx*W;
+    const rng=`<svg width="${W}" height="26" style="display:block;overflow:visible"><rect x="${X(s.f_p10)}" y="8" width="${X(s.f_p90)-X(s.f_p10)}" height="10" rx="5" fill="#CFE0D8"/><circle cx="${X(s.f_mean)}" cy="13" r="4" fill="#13201B"/><rect x="${X(sv.planned)-6}" y="7" width="12" height="12" fill="#E6AE3E" stroke="#fff" stroke-width="1.5" transform="rotate(45 ${X(sv.planned)} 13)"/></svg>`;
+    h+=`<tr class="style" data-s="${s.id}" tabindex="0" aria-expanded="${open.has(s.id)}"><td class="name"><b>${s.name}</b>${src}</td><td>${rng}<div class="risk"><span dir="ltr">${fmt(s.f_p10)}–${fmt(s.f_p90)}</span></div></td>
+      <td class="num"><b>${fmt(sv.planned)}</b></td>
+      <td class="hide-sm"><div class="sizes">${bySize.map((q,i)=>`<span><i style="height:${Math.max(2,q/smax*22)}px"></i>${sizes[i]}</span>`).join("")}</div></td>
+      <td class="num hide-sm">${M(sv.planned*s.cost)}</td><td class="num hide-sm">${fmt(sv.left)}</td><td class="num">${pct(sv.sellout)}</td></tr>`;
+    if(open.has(s.id)){
+      let m=`<table class="mini"><tr><th>${tr("colColor")}</th>${sizes.map(z=>`<th>${z}</th>`).join("")}<th>Σ</th></tr>`;
+      for(const c of s.colors){const ii=idx.filter(i=>D.sku[i].c===c);
+        const q=sizes.map(z=>{const i=ii.find(i=>D.sku[i].z===z);return i==null?0:v.Q[i]});
+        const u=sizes.map(z=>{const i=ii.find(i=>D.sku[i].z===z);return i==null?0:D.usual.Q[i]});
+        m+=`<tr><td>${c}</td>${q.map(x=>`<td><b>${x}</b></td>`).join("")}<td><b>${q.reduce((a,b)=>a+b,0)}</b></td></tr>`;
+        m+=`<tr class="usual"><td class="usual">${tr("colUsual")}</td>${u.map(x=>`<td class="usual">${x}</td>`).join("")}<td class="usual">${u.reduce((a,b)=>a+b,0)}</td></tr>`}
+      h+=`<tr class="detail"><td colspan="7"><div style="overflow-x:auto">${m}</table></div></td></tr>`}
+  }
+  $("plan").innerHTML=h+"</tbody>";
+  $("plan").querySelectorAll("tr.style").forEach(r=>{const go=()=>{const s=r.dataset.s;open.has(s)?open.delete(s):open.add(s);renderPlan(D.variants[V])};r.onclick=go;r.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}}});
+}
+
+function renderCouriers(){
+  const c=D.couriers;
+  $("courLead").textContent=tr("courLead",{a:fmt(c.now),b:fmt(c.plan),t:M((c.plan-c.now)*c.orders),n:fmt(c.orders)});
+  $("zones").innerHTML=c.zones.map(z=>{
+    const mx=Math.max(...z.alts.map(a=>a.profit));
+    const ch=z.now===z.pick?`<span>${tr("keep")} ${z.pick}</span>`:`<span class="up">${tr("switchTo")}</span> ${z.now} → ${z.pick}`;
+    return`<div class="zone"><div class="z"><b>${z.zone}</b><span>${tr("ordersN",{n:fmt(z.orders)})}</span></div>
+      <div class="alts">${z.alts.map(a=>`<div class="alt${a.courier===z.pick?" pick":""}"><span>${a.courier}</span><span class="track"><i style="width:${Math.max(3,a.rate*100)}%"></i></span><span>${Math.round(a.rate*100)}%</span></div>`).join("")}</div>
+      <div><b>EGP ${fmt(z.profit)}</b><span style="color:var(--ink3);font-size:12.5px">${tr("perOrder")}</span></div>
+      <div class="change">${ch}</div></div>`}).join("");
+}
+
+function renderReturns(){
+  const e=D.exchanges,fl=e.rows.filter(r=>r.flag);
+  $("flags").innerHTML=fl.length?fl.map(r=>`<div class="flag"><b>${r.name}</b><span>${tr("flagTxt",{r:pct(r.rate),b:pct(e.base),z:r.size,zr:pct(r.size_rate)})}</span></div>`).join(""):`<div class="ok">${tr("noFlags")}</div>`;
+  const mx=Math.max(...D.refusal.zones.map(z=>z.rate));
+  $("refusals").innerHTML=D.refusal.zones.map(z=>`<div class="bar" style="grid-template-columns:100px 1fr 52px"><span style="font-size:13px">${z.zone}</span><i style="width:${z.rate/mx*100}%;background:${z.rate>D.refusal.overall*1.15?"#C0533D":"#B9C7BF"}"></i><b>${pct(z.rate)}</b></div>`).join("");
+}
+
+function renderCash(v){
+  const W=1100,H=300,pl=70,pr=20,pt=20,pb=40,a=v.cash,n=a.length;
+  $("cashLead").textContent=tr("cashLead",{l:D.lead_weeks,m:fmt(v.cash_min),w:v.cash_min_week});
+  const lo=Math.min(0,...a),hi=Math.max(...a)*1.08;
+  const X=i=>pl+i/(n-1)*(W-pl-pr),Y=y=>pt+(hi-y)/(hi-lo)*(H-pt-pb);
+  let g="";const step=hi-lo>3e6?1e6:5e5;
+  for(let y=Math.ceil(lo/step)*step;y<=hi;y+=step)g+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(y)}" y2="${Y(y)}" stroke="${y===0?"#9AA8A0":"#E6ECE5"}"/><text x="${pl-8}" y="${Y(y)+4}" text-anchor="end" font-size="11" fill="#86938C">${M(y)}</text>`;
+  for(let i=0;i<n;i+=2)g+=`<text x="${X(i)}" y="${H-pb+18}" text-anchor="middle" font-size="11" fill="#86938C">${i}</text>`;
+  g+=`<text x="${W-pr}" y="${H-4}" text-anchor="end" font-size="11.5" fill="#53625B">${tr("wk")}</text>`;
+  const p=a.map((y,i)=>(i?"L":"M")+X(i)+","+Y(y)).join(" ");
+  g+=`<path d="${p} L${X(n-1)},${Y(0)} L${X(0)},${Y(0)}Z" fill="#1D4A3E" opacity=".08"/><path d="${p}" fill="none" stroke="#1D4A3E" stroke-width="2.4"/>`;
+  [[0,tr("dep")],[D.lead_weeks,tr("bal")]].forEach(([w,t])=>g+=`<line x1="${X(w)}" x2="${X(w)}" y1="${pt}" y2="${H-pb}" stroke="#E6AE3E" stroke-dasharray="3 4"/><text x="${X(w)+6}" y="${pt+12}" font-size="11.5" fill="#7A5513">${t}</text>`);
+  const mi=v.cash_min_week;
+  g+=`<circle cx="${X(mi)}" cy="${Y(a[mi])}" r="6" fill="${a[mi]<0?"#C0533D":"#E6AE3E"}" stroke="#fff" stroke-width="2"/><text x="${X(mi)+10}" y="${Y(a[mi])+18}" font-size="12.5" font-weight="600" fill="${a[mi]<0?"#C0533D":"#13201B"}">EGP ${M(a[mi])}</text>`;
+  a.forEach((y,i)=>g+=`<rect class="hit" data-i="${i}" x="${X(i)-(W-pl-pr)/(n-1)/2}" y="${pt}" width="${(W-pl-pr)/(n-1)}" height="${H-pt-pb}" fill="transparent"/>`);
+  const svg=$("cash");svg.innerHTML=g;
+  svg.querySelectorAll(".hit").forEach(r=>{const i=+r.dataset.i;r.onmousemove=e=>showTip(e,`${tr("wk")} ${i}: EGP ${fmt(a[i])}`);r.onmouseleave=hideTip});
+}
+
+function renderSure(){
+  if(!D.backtest){$("sureCard").hidden=true;return}
+  const map={"Best possible (knows true demand)":"b_best","Optimized plan":"b_opt","Optimized, data only (no owner input)":"b_data","Owner A: gut feel, usual size split":"b_A","Owner B: repeat last season's sales +15%":"b_B"};
+  const rows=D.backtest.slice().sort((a,b)=>b.gain-a.gain);
+  const mx=Math.max(...rows.map(r=>Math.abs(r.gain)));
+  $("sure").innerHTML=rows.map(r=>{const w=Math.abs(r.gain)/mx*45;const pos=r.gain>=0;
+    return`<div class="bar" style="grid-template-columns:230px 1fr 64px"><span style="font-size:13px">${tr(map[r.plan]||r.plan)}</span>
+    <span style="position:relative;height:12px"><span style="position:absolute;inset-block:0;inset-inline-start:50%;width:1px;background:#9AA8A0"></span><i style="position:absolute;height:12px;inset-inline-start:${pos?50:50-w}%;width:${w}%;background:${r.plan==="Optimized plan"?"#1D4A3E":pos?"#9DBBAE":"#E3A99B"};border-radius:3px"></i></span>
+    <b>${(r.gain>=0?"+":"")+(r.gain*100).toFixed(1)}%</b></div>`}).join("");
+}
+
+$("budget").oninput=e=>{V=+e.target.value;render()};
+$("lang").onclick=()=>{L=L==="en"?"ar":"en";render()};
+const APP=location.protocol.startsWith("http")&&window.__APP__;
+async function boot(){
+  try{const raw=$("data").textContent.trim();if(raw&&raw!=="__DATA__")D=JSON.parse(raw)}catch(e){}
+  if(!D&&window.__APP__){D=await (await fetch("/api/example")).json()}
+  if(D)V=D.base;
+  if(window.__APP__)document.body.classList.add("app");
+  render();
+}
+$("file").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  const box=$("drop");box.classList.add("busy");$("status").textContent=tr("running");
+  try{const fd=new FormData();fd.append("file",f);
+    const r=await fetch("/api/run",{method:"POST",body:fd});const j=await r.json();
+    if(!r.ok)throw new Error(j.detail||r.statusText);
+    D=j.view;V=D.base;open.clear();$("dl").href="/api/report/"+j.id;$("status").textContent=tr("done");render();
+  }catch(err){$("status").textContent=tr("fail",{e:err.message})}
+  box.classList.remove("busy");
+};
+if(EMBED){
+  addEventListener("message",e=>{if(e.origin!==location.origin)return;const m=e.data||{};
+    if(m.type==="plan"){D=m.data;L=m.lang||"en";V=D.base;open.clear();render();sendH()}
+    if(m.type==="lang"){L=m.lang;render();sendH()}});
+  const sendH=()=>parent.postMessage({type:"height",h:document.documentElement.scrollHeight},location.origin);
+  new ResizeObserver(sendH).observe(document.body);
+  parent.postMessage({type:"ready"},location.origin);
+}else boot();
+</script>
+</body>
+</html>

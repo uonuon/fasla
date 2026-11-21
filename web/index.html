@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fasla</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='26' fill='%231D4A3E'/%3E%3Ccircle cx='54' cy='40' r='17' fill='%23E6AE3E'/%3E%3Cpath d='M68 46 C 68 64, 58 76, 40 82' fill='none' stroke='%23E6AE3E' stroke-width='11' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: the cutting mat again. Green, gridded panels hold the moments that matter (sign-in, the running plan);
+   everything you operate sits on quiet white cards. */
+:root{
+  --paper:#F2F4F0; --card:#FFFFFF; --ink:#13201B; --ink2:#53625B; --ink3:#86938C; --line:#DCE3DB;
+  --mat:#1D4A3E; --mat2:#2A5D4F; --chalk:#E6AE3E; --bad:#C0533D; --badbg:#FBEFEC; --warn:#8A5A0B; --warnbg:#FBF3E2;
+  --good:#2E7D57; --goodbg:#E9F4EE;
+  --display:"Bricolage Grotesque","Rubik",system-ui,sans-serif; --body:"Rubik",system-ui,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--body)}
+[dir=rtl] body{font-family:"Rubik",system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--mat)}
+:focus-visible{outline:2px solid var(--chalk);outline-offset:2px}
+.hidden{display:none!important}
+.gridbg{background:var(--mat);color:#EEF3EF;
+  background-image:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px),
+  linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);
+  background-size:120px 120px,120px 120px,24px 24px,24px 24px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 16px;cursor:pointer;font-weight:500;text-decoration:none;color:var(--ink);white-space:nowrap}
+.btn:hover{border-color:var(--ink3)}
+.btn.primary{background:var(--mat);border-color:var(--mat);color:#fff}
+.btn.primary:hover{background:var(--mat2)}
+.btn.chalk{background:var(--chalk);border-color:var(--chalk);color:#1b1300;font-weight:600}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{background:#E8ECE6}
+.btn.danger{color:var(--bad)}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+.btn.sm{padding:6px 11px;font-size:13.5px;border-radius:10px}
+.field{display:grid;gap:6px}
+.field label{font-weight:500;font-size:14px}
+.field small{color:var(--ink3);font-size:12.5px}
+.input{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 13px;background:#fff}
+.input:focus{outline:2px solid var(--chalk);outline-offset:0;border-color:transparent}
+.err{color:var(--bad);font-size:13.5px}
+.note{border-radius:12px;padding:12px 14px;font-size:14px}
+.note.warn{background:var(--warnbg);color:var(--warn)}
+.note.bad{background:var(--badbg);color:var(--bad)}
+.note.good{background:var(--goodbg);color:var(--good)}
+h1,h2,h3{text-wrap:balance}
+/* auth */
+.auth{display:grid;grid-template-columns:1.05fr 1fr;min-height:100vh}
+.auth .pitch{padding:48px 56px;display:flex;flex-direction:column;gap:28px}
+.logo{display:flex;align-items:center;gap:10px;font:800 21px/1 var(--display);letter-spacing:-.01em}
+.logo small{font:500 12.5px/1 var(--body);color:var(--ink3);margin-inline-start:4px}
+.gridbg .logo small{color:#A9C4B9}
+.pitch h1{font:800 clamp(34px,4vw,52px)/1.05 var(--display);margin:auto 0 0;letter-spacing:-.02em;max-width:15ch}
+.pitch h1 em{font-style:normal;color:var(--chalk)}
+.pitch p{color:#BFD3CA;max-width:46ch;margin:0;font-size:16px}
+.pitch ul{list-style:none;padding:0;margin:0 0 auto;display:grid;gap:10px;color:#DCE8E2}
+.pitch li{display:flex;gap:10px;align-items:flex-start}
+.pitch li b{color:var(--chalk);font:700 14px/1.6 var(--display)}
+.auth .panel{display:flex;align-items:center;justify-content:center;padding:40px 24px}
+.authcard{width:100%;max-width:400px;display:grid;gap:18px}
+.tabs{display:flex;background:#E7EBE5;border-radius:12px;padding:4px}
+.tabs button{flex:1;border:0;background:none;padding:9px;border-radius:9px;cursor:pointer;font-weight:500;color:var(--ink2)}
+.tabs button[aria-selected=true]{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.or{display:flex;align-items:center;gap:12px;color:var(--ink3);font-size:13px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+/* shell */
+.top{display:flex;align-items:center;gap:12px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:10}
+.spacer{flex:1}
+.menu{position:relative}
+.menu .pop{position:absolute;inset-inline-end:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.1);min-width:240px;padding:6px;display:none;z-index:20}
+.menu.open .pop{display:block}
+.pop .item{display:flex;width:100%;text-align:start;border:0;background:none;padding:9px 12px;border-radius:9px;cursor:pointer;gap:8px;align-items:center}
+.pop .item:hover{background:#F1F4F0}
+.pop .sep{height:1px;background:var(--line);margin:6px 4px}
+.pop .meta{padding:8px 12px;color:var(--ink3);font-size:13px;word-break:break-all}
+.brandbtn{font-weight:600}
+main{max-width:1120px;margin:0 auto;padding:28px 22px 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px}
+.stack{display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
+.title{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.title h1{font:800 30px/1.1 var(--display);margin:0;letter-spacing:-.01em}
+.eyebrow{font:600 12px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.steps{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:18px}
+.step{display:grid;gap:12px;align-content:start}
+.step h2{font:700 19px/1.25 var(--display);margin:0;display:flex;gap:10px;align-items:center}
+.num{width:28px;height:28px;border-radius:50%;background:var(--mat);color:#fff;display:inline-grid;place-items:center;font:700 13px/1 var(--display);flex:none}
+.step p{margin:0;color:var(--ink2)}
+.sheetlist{display:grid;gap:6px;font-size:13.5px;color:var(--ink2);margin:2px 0 0;padding:0;list-style:none}
+.sheetlist b{color:var(--ink);font-weight:600}
+.drop{border:2px dashed #C7D1C6;border-radius:16px;padding:28px 18px;text-align:center;cursor:pointer;transition:background .15s,border-color .15s;display:grid;gap:8px;justify-items:center}
+.drop:hover,.drop.over{background:#F3F7F2;border-color:var(--mat)}
+.drop b{font:700 17px/1.3 var(--display)}
+.drop span{color:var(--ink3);font-size:13.5px}
+.bar{height:8px;background:#E7EBE5;border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--mat);width:0;transition:width .2s}
+table.list{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.list th{font:600 11.5px/1.2 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);text-align:start;padding:0 10px 10px}
+.list td{padding:12px 10px;border-top:1px solid var(--line);vertical-align:middle}
+.list tr.row{cursor:pointer}
+.list tr.row:hover td{background:#F8FAF7}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:3px 10px;border-radius:999px;font-weight:500;white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip.done{background:var(--goodbg);color:var(--good)}
+.chip.running,.chip.queued{background:var(--warnbg);color:var(--warn)}
+.chip.failed{background:var(--badbg);color:var(--bad)}
+.chip.draft{background:#EEF1ED;color:var(--ink2)}
+.empty{text-align:center;color:var(--ink3);padding:26px}
+.stats{display:flex;gap:10px;flex-wrap:wrap}
+.stat{background:#F3F6F2;border-radius:12px;padding:10px 14px}
+.stat b{display:block;font:700 20px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px;color:var(--ink2)}
+.form{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.run{padding:34px 30px;border-radius:22px;display:grid;gap:20px}
+.run h2{font:800 30px/1.1 var(--display);margin:0}
+.runsteps{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.runsteps li{display:flex;align-items:center;gap:12px;color:#A9C4B9}
+.runsteps li.on{color:#fff}
+.runsteps li.ok{color:#CFE0D8}
+.runsteps i{width:22px;height:22px;border-radius:50%;border:2px solid currentColor;display:grid;place-items:center;flex:none;font-style:normal;font-size:12px}
+.runsteps li.ok i{background:var(--chalk);border-color:var(--chalk);color:#1b1300}
+.runsteps li.on i{border-color:var(--chalk);border-top-color:transparent;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.planbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+iframe.results{width:100%;border:0;display:block;min-height:900px}
+.modal{position:fixed;inset:0;background:rgba(19,32,27,.45);display:grid;place-items:center;z-index:50;padding:20px}
+.modal .card{max-width:440px;width:100%;display:grid;gap:14px}
+.modal h3{margin:0;font:700 19px/1.3 var(--display)}
+.toast{position:fixed;bottom:22px;inset-inline-start:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 16px;border-radius:12px;z-index:60;font-size:14px;max-width:90vw}
+[dir=rtl] .toast{transform:translateX(50%)}
+.loading{display:grid;place-items:center;min-height:60vh;color:var(--ink3)}
+@media (max-width:900px){
+  .auth{grid-template-columns:1fr}
+  .auth .pitch{padding:32px 24px;gap:18px}
+  .pitch h1{margin-top:4px;font-size:30px}
+  .pitch ul,.pitch p{display:none}
+  .auth .panel{align-items:flex-start;padding-top:24px}
+  .steps,.form{grid-template-columns:minmax(0,1fr)}
+  .top{gap:6px}.top .logo span{display:none}.top .btn{padding:6px 9px}
+  .btn{white-space:normal;text-align:center}
+  .title h1{font-size:25px}
+  .planbar .btn{flex:1 1 auto}
+  .card{padding:18px 16px}
+  body{overflow-x:hidden}
+  .hide-sm{display:none}
+  main{padding:20px 14px 50px}
+  .top{padding:12px 14px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app"><div class="loading">…</div></div>
+<script src="/config.js"></script>
+<script src="/static/vendor/supabase.js"></script>
+<script>
+"use strict";
+const CFG = window.FASLA_CONFIG || {authMode: "dev"};
+const MARK = '<svg width="34" height="34" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="26" fill="#1D4A3E"/><circle cx="54" cy="40" r="17" fill="#E6AE3E"/><path d="M68 46 C 68 64, 58 76, 40 82" fill="none" stroke="#E6AE3E" stroke-width="11" stroke-linecap="round"/></svg>';
+
+/* ---------------- words ---------------- */
+const T = {
+en:{tag:"Production planning for clothing brands",pitchH:"Make the <em>right</em> pieces. Ship with the <em>right</em> courier.",
+ pitchP:"Fasla reads your past orders and tells you how many pieces to make of every style, colour and size, which courier to use in each area, and when cash gets tight.",
+ p1:"Corrects for sizes that sold out early",p2:"Respects your budget and factory minimums",p3:"Plain-language reasons for every number",
+ signin:"Sign in",signup:"Create account",email:"Email",password:"Password",pwHint:"At least 8 characters",
+ google:"Continue with Google",or:"or",forgot:"Forgot password?",sendReset:"Send reset link",back:"Back",
+ resetSent:"Check your email for a link to reset your password.",confirmSent:"Almost there: check your email and click the link to confirm your account.",
+ newPw:"Choose a new password",savePw:"Save password",pwSaved:"Password saved. You're signed in.",
+ account:"Account",signout:"Sign out",lang:"العربية",brands:"Your brands",newBrand:"New brand",
+ createFirst:"Create your brand",createFirstP:"Give your brand a name. You can add more brands later.",brandName:"Brand name",create:"Create",
+ rename:"Rename",del:"Delete",delBrandQ:"Delete this brand?",delBrandP:"All its plans and uploaded files will be deleted. This can't be undone.",
+ delPlanQ:"Delete this plan?",delPlanP:"The uploaded file and the report will be deleted. This can't be undone.",cancel:"Cancel",
+ s1:"Get the template",s1p:"One Excel workbook with six sheets. Fill it from your order exports or by hand.",
+ tEmpty:"Empty template",tExample:"Example brand (filled)",
+ sh1:"<b>Products</b>: style, colour, size, cost, price",sh2:"<b>Orders</b>: past orders and whether they were delivered",
+ sh3:"<b>Production</b>: what you made each season",sh4:"<b>Couriers</b>: fees per area",sh5:"<b>Settings</b>: budget and factory minimums",
+ sh6:"<b>OwnerEstimates</b>: your own guess per style (optional, recommended)",
+ s2:"Upload your workbook",dropB:"Drop your .xlsx here",dropS:"or click to choose a file · up to {mb} MB",uploading:"Uploading and checking…",
+ history:"Plans",noPlans:"No plans yet. Upload a workbook to make your first one.",
+ colDate:"Uploaded",colFile:"File",colStatus:"Status",colProfit:"Expected profit",colUnits:"Pieces",
+ st_draft:"Ready to run",st_queued:"Waiting",st_running:"Planning",st_done:"Done",st_failed:"Failed",
+ fixFile:"We couldn't use this file",fixFileP:"Fix these and upload again:",
+ review:"Check your data",reviewP:"Here's what we found in your workbook. Adjust the settings if needed, then run the plan.",
+ orders:"orders",styles:"styles",seasons:"seasons",couriersN:"couriers",zonesN:"areas",estimates:"owner estimates",
+ warnings:"Worth knowing",settings:"Settings",runPlan:"Run plan",runAgain:"Change settings",replace:"Upload a different file",
+ f_budget:"Production budget (EGP)",h_budget:"Cash you'll spend on making pieces this season",
+ f_factory_moq:"Factory minimum per design",h_factory_moq:"Pieces per style the factory requires",
+ f_min_per_color:"Minimum per colour",h_min_per_color:"Smallest run of one colour",
+ f_leftover_share:"Leftover value (%)",h_leftover_share:"What an unsold piece is worth at season end, % of price",
+ f_start_cash:"Cash in the bank today (EGP)",h_start_cash:"Used for the cash-flow forecast",
+ f_deposit_share:"Factory deposit (%)",h_deposit_share:"Paid up front when you order",
+ f_lead_weeks:"Production time (weeks)",h_lead_weeks:"From order to stock arriving",
+ f_ads_share:"Ad spend (% of sales)",h_ads_share:"Roughly how much of revenue goes to ads",
+ f_fixed_weekly:"Fixed weekly costs (EGP)",h_fixed_weekly:"Rent, salaries and other weekly costs",
+ runningH:"Planning your season",runningP:"This usually takes 1–2 minutes. You can leave this page; the plan keeps running.",
+ r1:"Reading orders and production",r2:"Estimating real demand for sizes that sold out",r3:"Forecasting next season",
+ r4:"Choosing quantities for 5 budgets",r5:"Couriers, returns and cash flow",r6:"Writing your report",
+ failedH:"This plan didn't finish",report:"Download report (Excel)",input:"Your uploaded file",backBrand:"All plans",
+ planOf:"Plan from {d}",err401:"Your session ended. Please sign in again.",errNet:"Can't reach Fasla. Check your connection.",
+ saved:"Saved",deleted:"Deleted",brandCreated:"Brand created",notFound:"That page doesn't exist.",home:"Go home"},
+ar:{tag:"تخطيط الإنتاج لبراندات الملابس",pitchH:"اصنع القطع <em>الصح</em>. واشحن مع الشركة <em>الصح</em>.",
+ pitchP:"فاصلة بتقرا أوردراتك اللي فاتت وبتقولك تصنع كام قطعة من كل موديل ولون ومقاس، وأنهي شركة شحن لكل منطقة، وإمتى الفلوس هتقل.",
+ p1:"بتصحح المقاسات اللي خلصت بدري",p2:"بتلتزم بميزانيتك وحد المصنع الأدنى",p3:"سبب واضح لكل رقم",
+ signin:"تسجيل الدخول",signup:"حساب جديد",email:"الإيميل",password:"كلمة السر",pwHint:"٨ حروف على الأقل",
+ google:"المتابعة بحساب جوجل",or:"أو",forgot:"نسيت كلمة السر؟",sendReset:"ابعت رابط التغيير",back:"رجوع",
+ resetSent:"افتح إيميلك هتلاقي رابط لتغيير كلمة السر.",confirmSent:"خطوة أخيرة: افتح إيميلك واضغط على الرابط لتأكيد الحساب.",
+ newPw:"اختار كلمة سر جديدة",savePw:"حفظ",pwSaved:"اتحفظت كلمة السر وانت داخل دلوقتي.",
+ account:"الحساب",signout:"تسجيل الخروج",lang:"English",brands:"البراندات بتاعتك",newBrand:"براند جديد",
+ createFirst:"اعمل البراند بتاعك",createFirstP:"اكتب اسم البراند. تقدر تضيف براندات تانية بعدين.",brandName:"اسم البراند",create:"إنشاء",
+ rename:"تغيير الاسم",del:"حذف",delBrandQ:"تحذف البراند ده؟",delBrandP:"كل الخطط والملفات بتاعته هتتمسح، ومش هينفع ترجعها.",
+ delPlanQ:"تحذف الخطة دي؟",delPlanP:"الملف المرفوع والتقرير هيتمسحوا، ومش هينفع ترجعهم.",cancel:"إلغاء",
+ s1:"نزّل النموذج",s1p:"ملف إكسل واحد فيه ٦ شيتات. املاه من تصدير الأوردرات أو بإيدك.",
+ tEmpty:"نموذج فاضي",tExample:"براند مثال (متملي)",
+ sh1:"<b>Products</b>: الموديل واللون والمقاس والتكلفة والسعر",sh2:"<b>Orders</b>: الأوردرات اللي فاتت واتسلمت ولا لأ",
+ sh3:"<b>Production</b>: صنعت كام كل موسم",sh4:"<b>Couriers</b>: أسعار الشحن لكل منطقة",sh5:"<b>Settings</b>: الميزانية وحد المصنع",
+ sh6:"<b>OwnerEstimates</b>: تقديرك لكل موديل (اختياري ومفيد)",
+ s2:"ارفع الملف",dropB:"اسحب ملف الـ xlsx هنا",dropS:"أو اضغط لاختيار ملف · لحد {mb} ميجا",uploading:"بنرفع الملف ونراجعه…",
+ history:"الخطط",noPlans:"مفيش خطط لسه. ارفع ملف عشان تعمل أول خطة.",
+ colDate:"اتنزل",colFile:"الملف",colStatus:"الحالة",colProfit:"الربح المتوقع",colUnits:"القطع",
+ st_draft:"جاهزة للتشغيل",st_queued:"في الانتظار",st_running:"جاري التخطيط",st_done:"خلصت",st_failed:"فشلت",
+ fixFile:"مقدرناش نستخدم الملف ده",fixFileP:"صلّح الحاجات دي وارفعه تاني:",
+ review:"راجع بياناتك",reviewP:"ده اللي لقيناه في الملف. عدّل الإعدادات لو محتاج، وبعدين شغّل الخطة.",
+ orders:"أوردر",styles:"موديل",seasons:"مواسم",couriersN:"شركات شحن",zonesN:"مناطق",estimates:"تقديرات",
+ warnings:"حاجات مهم تعرفها",settings:"الإعدادات",runPlan:"شغّل الخطة",runAgain:"غيّر الإعدادات",replace:"ارفع ملف تاني",
+ f_budget:"ميزانية الإنتاج (جنيه)",h_budget:"الفلوس اللي هتصرفها على التصنيع الموسم ده",
+ f_factory_moq:"حد المصنع لكل موديل",h_factory_moq:"أقل عدد قطع بيقبله المصنع للموديل",
+ f_min_per_color:"أقل كمية لكل لون",h_min_per_color:"أصغر تشغيلة للون واحد",
+ f_leftover_share:"قيمة القطعة المتبقية (٪)",h_leftover_share:"القطعة اللي متباعتش تسوى كام آخر الموسم، كنسبة من السعر",
+ f_start_cash:"الفلوس في البنك النهارده (جنيه)",h_start_cash:"بنستخدمها لتوقع الكاش",
+ f_deposit_share:"عربون المصنع (٪)",h_deposit_share:"بيتدفع مقدم مع الطلب",
+ f_lead_weeks:"مدة التصنيع (أسابيع)",h_lead_weeks:"من الطلب لحد ما البضاعة توصل",
+ f_ads_share:"الإعلانات (٪ من المبيعات)",h_ads_share:"تقريبًا كام من الإيراد بيروح إعلانات",
+ f_fixed_weekly:"مصاريف ثابتة أسبوعية (جنيه)",h_fixed_weekly:"إيجار ومرتبات ومصاريف تانية",
+ runningH:"بنخطط موسمك",runningP:"عادة بتاخد دقيقة أو اتنين. تقدر تقفل الصفحة والخطة هتكمل.",
+ r1:"قراءة الأوردرات والإنتاج",r2:"تقدير الطلب الحقيقي للمقاسات اللي خلصت",r3:"توقع الموسم الجاي",
+ r4:"اختيار الكميات لـ ٥ ميزانيات",r5:"شركات الشحن والمرتجعات والكاش",r6:"كتابة التقرير",
+ failedH:"الخطة دي مكملتش",report:"تحميل التقرير (إكسل)",input:"الملف اللي رفعته",backBrand:"كل الخطط",
+ planOf:"خطة {d}",err401:"الجلسة خلصت. سجّل دخول تاني.",errNet:"مش قادرين نوصل لفاصلة. اتأكد من النت.",
+ saved:"اتحفظ",deleted:"اتمسح",brandCreated:"اتعمل البراند",notFound:"الصفحة دي مش موجودة.",home:"الرئيسية"}};
+let L = (()=>{try{return localStorage.getItem("fasla.lang")||"en"}catch(e){return "en"}})();
+const t=(k,v={})=>{let s=(T[L][k]??T.en[k]??k);for(const[a,b] of Object.entries(v))s=s.replaceAll("{"+a+"}",b);return s};
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const $=s=>document.querySelector(s);
+const fmt=n=>Math.round(n).toLocaleString("en-US");
+const M=n=>n==null?"—":Math.abs(n)>=1e6?(n/1e6).toFixed(2)+"M":Math.abs(n)>=1e4?Math.round(n/1e3)+"K":fmt(n);
+const dt=s=>{try{return new Date(s).toLocaleString(L==="ar"?"ar-EG":"en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}catch(e){return s}};
+function setLang(l){L=l;try{localStorage.setItem("fasla.lang",l)}catch(e){}document.documentElement.lang=l;document.documentElement.dir=l==="ar"?"rtl":"ltr";route()}
+document.documentElement.lang=L;document.documentElement.dir=L==="ar"?"rtl":"ltr";
+
+/* ---------------- auth ---------------- */
+const sb = (CFG.authMode==="supabase" && window.supabase && CFG.supabaseUrl) ?
+  window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}) : null;
+const Auth = {
+  async session(){
+    if(sb){const {data}=await sb.auth.getSession();const s=data.session;return s?{token:s.access_token,email:s.user.email}:null}
+    try{const s=JSON.parse(localStorage.getItem("fasla.dev")||"null");if(s&&s.exp>Date.now())return s}catch(e){}return null},
+  async signIn(email,pw){
+    if(sb){const {error}=await sb.auth.signInWithPassword({email,password:pw});if(error)throw new Error(error.message);return {}}
+    return devAuth("login",email,pw)},
+  async signUp(email,pw){
+    if(sb){const {data,error}=await sb.auth.signUp({email,password:pw,options:{emailRedirectTo:location.origin+"/"}});
+      if(error)throw new Error(error.message);return {confirm:!data.session}}
+    return devAuth("signup",email,pw)},
+  async google(){const {error}=await sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+"/"}});if(error)throw new Error(error.message)},
+  async reset(email){const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+"/#/reset"});if(error)throw new Error(error.message)},
+  async newPassword(pw){const {error}=await sb.auth.updateUser({password:pw});if(error)throw new Error(error.message)},
+  async signOut(){if(sb)await sb.auth.signOut();try{localStorage.removeItem("fasla.dev")}catch(e){}}
+};
+async function devAuth(kind,email,password){
+  const r=await fetch("/api/dev/"+kind,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(typeof j.detail==="string"?j.detail:(L==="ar"?"تأكد من الإيميل وكلمة السر (٨ حروف على الأقل)":"Check your email and password (at least 8 characters)"));
+  localStorage.setItem("fasla.dev",JSON.stringify({token:j.access_token,email:j.email,exp:Date.now()+11*3600e3}));return {}
+}
+if(sb)sb.auth.onAuthStateChange((ev)=>{if(ev==="PASSWORD_RECOVERY"){location.hash="#/reset"}else if(ev==="SIGNED_IN"||ev==="SIGNED_OUT")route()});
+
+/* ---------------- api ---------------- */
+async function api(path,opt={}){
+  const s=await Auth.session();
+  if(!s){location.hash="#/login";throw new Error("auth")}
+  const h={...(opt.headers||{}),Authorization:"Bearer "+s.token};
+  if(opt.json!==undefined){h["Content-Type"]="application/json";opt.body=JSON.stringify(opt.json)}
+  let r;try{r=await fetch(path,{...opt,headers:h})}catch(e){toast(t("errNet"));throw e}
+  if(r.status===401){await Auth.signOut();toast(t("err401"));location.hash="#/login";throw new Error("auth")}
+  return r;
+}
+async function apiJson(path,opt){const r=await api(path,opt);const j=await r.json().catch(()=>({}));if(!r.ok){const m=typeof j.detail==="string"?j.detail:(j.errors||[]).join(" ")||r.statusText;throw Object.assign(new Error(m),{status:r.status,body:j})}return j}
+async function download(path,fallbackName){
+  const r=await api(path);if(!r.ok){toast((await r.json().catch(()=>({}))).detail||"Download failed");return}
+  const b=await r.blob();const cd=r.headers.get("content-disposition")||"";const m=cd.match(/filename="([^"]+)"/);
+  const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=m?m[1]:fallbackName;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);
+}
+function toast(msg){const d=document.createElement("div");d.className="toast";d.setAttribute("role","status");d.textContent=msg;document.body.appendChild(d);setTimeout(()=>d.remove(),3800)}
+function confirmBox(title,text,okLabel){return new Promise(res=>{
+  const m=document.createElement("div");m.className="modal";m.innerHTML=`<div class="card" role="dialog" aria-modal="true"><h3>${esc(title)}</h3><p style="margin:0;color:var(--ink2)">${esc(text)}</p><div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn" id="mNo">${t("cancel")}</button><button class="btn primary" id="mOk" style="background:var(--bad);border-color:var(--bad)">${esc(okLabel)}</button></div></div>`;
+  document.body.appendChild(m);const done=v=>{m.remove();res(v)};m.querySelector("#mNo").onclick=()=>done(false);m.querySelector("#mOk").onclick=()=>done(true);
+  m.onclick=e=>{if(e.target===m)done(false)};m.querySelector("#mOk").focus();addEventListener("keydown",function k(e){if(e.key==="Escape"){removeEventListener("keydown",k);done(false)}})})}
+function promptBox(title,label,value){return new Promise(res=>{
+  const m=document.createElement("div");m.className="modal";m.innerHTML=`<form class="card"><h3>${esc(title)}</h3><div class="field"><label for="pIn">${esc(label)}</label><input class="input" id="pIn" maxlength="80" required value="${esc(value||"")}"></div><div style="display:flex;gap:10px;justify-content:flex-end"><button type="button" class="btn" id="pNo">${t("cancel")}</button><button class="btn primary">${t("saved")==="Saved"?"Save":"حفظ"}</button></div></form>`;
+  document.body.appendChild(m);const f=m.querySelector("form");const done=v=>{m.remove();res(v)};
+  m.querySelector("#pNo").onclick=()=>done(null);f.onsubmit=e=>{e.preventDefault();done(m.querySelector("#pIn").value.trim()||null)};m.querySelector("#pIn").select()})}
+
+/* ---------------- router ---------------- */
+let state={brands:null,user:null,poll:null};
+function stopPoll(){if(state.poll){clearTimeout(state.poll);state.poll=null}}
+async function route(){
+  stopPoll();
+  const h=location.hash||"#/";
+  if(h.startsWith("#/reset"))return viewReset();
+  if(h.includes("access_token")||h.includes("error_description"))return;  // Supabase finishing a redirect
+  const s=await Auth.session();
+  if(h.startsWith("#/login")||!s){if(s){location.hash="#/";return}return viewAuth()}
+  state.user=s;
+  const m=h.match(/^#\/(b|p)\/([0-9a-f-]{36})/);
+  try{
+    if(!state.brands)state.brands=await apiJson("/api/brands");
+    if(m&&m[1]==="b")return viewBrand(m[2]);
+    if(m&&m[1]==="p")return viewPlan(m[2]);
+    if(!state.brands.length)return viewOnboard();
+    let last=null;try{last=localStorage.getItem("fasla.brand")}catch(e){}
+    const b=state.brands.find(x=>x.id===last)||state.brands[0];location.hash="#/b/"+b.id;
+  }catch(e){if(e.message!=="auth")shell(`<div class="card empty">${esc(e.message)}</div>`)}
+}
+addEventListener("hashchange",route);
+
+/* ---------------- views: auth ---------------- */
+function viewAuth(mode){
+  mode=mode||"signin";
+  const app=$("#app");
+  app.innerHTML=`<div class="auth">
+   <section class="pitch gridbg"><div class="logo">${MARK}<span>Fasla</span><small>${t("tag")}</small></div>
+    <h1>${t("pitchH")}</h1><p>${t("pitchP")}</p>
+    <ul><li><b>01</b>${t("p1")}</li><li><b>02</b>${t("p2")}</li><li><b>03</b>${t("p3")}</li></ul>
+    <button class="btn sm" id="lang" style="width:max-content;background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff">${t("lang")}</button></section>
+   <section class="panel"><div class="authcard" id="authcard"></div></section></div>`;
+  $("#lang").onclick=()=>setLang(L==="en"?"ar":"en");
+  const card=$("#authcard");
+  if(mode==="forgot"){
+    card.innerHTML=`<h2 style="font:800 26px/1.2 var(--display);margin:0">${t("forgot")}</h2>
+     <form id="f" class="stack" novalidate><div class="field"><label for="em">${t("email")}</label><input class="input" id="em" type="email" autocomplete="email" required></div>
+     <div class="err" id="er" role="alert"></div><button class="btn primary" id="go">${t("sendReset")}</button>
+     <button type="button" class="btn ghost" id="bk">${t("back")}</button></form>`;
+    $("#bk").onclick=()=>viewAuth("signin");
+    $("#f").onsubmit=async e=>{e.preventDefault();$("#go").disabled=true;$("#er").textContent="";
+      try{await Auth.reset($("#em").value.trim());card.innerHTML=`<div class="note good">${t("resetSent")}</div><button class="btn" onclick="location.reload()">${t("back")}</button>`}
+      catch(er){$("#er").textContent=er.message;$("#go").disabled=false}};
+    return;
+  }
+  const up=mode==="signup";
+  card.innerHTML=`<div class="tabs" role="tablist"><button role="tab" id="tIn" aria-selected="${!up}">${t("signin")}</button><button role="tab" id="tUp" aria-selected="${up}">${t("signup")}</button></div>
+   ${sb&&CFG.googleLogin?`<button class="btn" id="gg" style="width:100%"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C40.9 35.4 44 30.1 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>${t("google")}</button><div class="or">${t("or")}</div>`:""}
+   <form id="f" class="stack" novalidate>
+    <div class="field"><label for="em">${t("email")}</label><input class="input" id="em" type="email" autocomplete="email" required></div>
+    <div class="field"><label for="pw">${t("password")}</label><input class="input" id="pw" type="password" minlength="8" autocomplete="${up?"new-password":"current-password"}" required>${up?`<small>${t("pwHint")}</small>`:""}</div>
+    <div class="err" id="er" role="alert"></div>
+    <button class="btn primary" id="go">${up?t("signup"):t("signin")}</button>
+    ${sb&&!up?`<button type="button" class="btn ghost sm" id="fg">${t("forgot")}</button>`:""}
+   </form>`;
+  $("#tIn").onclick=()=>viewAuth("signin");$("#tUp").onclick=()=>viewAuth("signup");
+  if($("#fg"))$("#fg").onclick=()=>viewAuth("forgot");
+  if($("#gg"))$("#gg").onclick=()=>Auth.google().catch(e=>$("#er").textContent=e.message);
+  $("#f").onsubmit=async e=>{e.preventDefault();const em=$("#em").value.trim(),pw=$("#pw").value;$("#er").textContent="";
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){$("#er").textContent=L==="ar"?"اكتب إيميل صحيح":"Enter a valid email";return}
+    if(pw.length<8){$("#er").textContent=t("pwHint");return}
+    $("#go").disabled=true;
+    try{const r=up?await Auth.signUp(em,pw):await Auth.signIn(em,pw);
+      if(r.confirm){card.innerHTML=`<div class="note good">${t("confirmSent")}</div>`;return}
+      state.brands=null;location.hash="#/";route()}
+    catch(er){$("#er").textContent=er.message;$("#go").disabled=false}};
+  setTimeout(()=>$("#em")&&$("#em").focus(),50);
+}
+function viewReset(){
+  const app=$("#app");
+  app.innerHTML=`<div class="auth"><section class="pitch gridbg"><div class="logo">${MARK}<span>Fasla</span></div><h1>${t("newPw")}</h1></section>
+   <section class="panel"><form class="authcard" id="f"><div class="field"><label for="pw">${t("password")}</label><input class="input" id="pw" type="password" minlength="8" autocomplete="new-password" required><small>${t("pwHint")}</small></div>
+   <div class="err" id="er" role="alert"></div><button class="btn primary" id="go">${t("savePw")}</button></form></section></div>`;
+  $("#f").onsubmit=async e=>{e.preventDefault();const pw=$("#pw").value;if(pw.length<8){$("#er").textContent=t("pwHint");return}
+    try{await Auth.newPassword(pw);toast(t("pwSaved"));location.hash="#/"}catch(er){$("#er").textContent=er.message}};
+}
+
+/* ---------------- shell ---------------- */
+function shell(inner,currentBrand){
+  const bl=(state.brands||[]).map(b=>`<button class="item" data-b="${b.id}">${b.id===currentBrand?"✓ ":""}${esc(b.name)}</button>`).join("");
+  const cur=(state.brands||[]).find(b=>b.id===currentBrand);
+  $("#app").innerHTML=`<header class="top">
+    <a href="#/" class="logo" style="text-decoration:none;color:inherit">${MARK}<span>Fasla</span></a>
+    ${state.brands&&state.brands.length?`<div class="menu" id="bm"><button class="btn ghost brandbtn" aria-haspopup="true">${esc(cur?cur.name:t("brands"))} ▾</button>
+      <div class="pop"><div class="meta">${t("brands")}</div>${bl}<div class="sep"></div><button class="item" id="nb">+ ${t("newBrand")}</button></div></div>`:""}
+    <div class="spacer"></div>
+    <button class="btn ghost sm" id="lang">${t("lang")}</button>
+    <div class="menu" id="am"><button class="btn sm" aria-haspopup="true">${t("account")} ▾</button>
+      <div class="pop"><div class="meta">${esc(state.user&&state.user.email)}</div><div class="sep"></div><button class="item" id="so">${t("signout")}</button></div></div>
+   </header><main id="main">${inner}</main>`;
+  $("#lang").onclick=()=>setLang(L==="en"?"ar":"en");
+  document.querySelectorAll(".menu").forEach(m=>{m.querySelector("button").onclick=e=>{e.stopPropagation();document.querySelectorAll(".menu").forEach(x=>x!==m&&x.classList.remove("open"));m.classList.toggle("open")}});
+  document.onclick=()=>document.querySelectorAll(".menu").forEach(x=>x.classList.remove("open"));
+  document.querySelectorAll("[data-b]").forEach(b=>b.onclick=()=>{location.hash="#/b/"+b.dataset.b});
+  if($("#nb"))$("#nb").onclick=newBrand;
+  $("#so").onclick=async()=>{await Auth.signOut();state={brands:null,user:null,poll:null};location.hash="#/login";route()};
+}
+async function newBrand(){
+  const name=await promptBox(t("newBrand"),t("brandName"),"");if(!name)return;
+  try{const b=await apiJson("/api/brands",{method:"POST",json:{name}});state.brands=await apiJson("/api/brands");toast(t("brandCreated"));location.hash="#/b/"+b.id}
+  catch(e){toast(e.message)}
+}
+function viewOnboard(){
+  shell(`<div class="card stack" style="max-width:520px;margin:40px auto">
+    <div class="eyebrow">Fasla</div><h1 style="font:800 30px/1.15 var(--display);margin:0">${t("createFirst")}</h1>
+    <p style="margin:0;color:var(--ink2)">${t("createFirstP")}</p>
+    <form id="f" class="stack"><div class="field"><label for="bn">${t("brandName")}</label><input class="input" id="bn" maxlength="80" required></div>
+    <div class="err" id="er" role="alert"></div><button class="btn primary">${t("create")}</button></form></div>`);
+  $("#bn").focus();
+  $("#f").onsubmit=async e=>{e.preventDefault();const name=$("#bn").value.trim();if(!name)return;
+    try{const b=await apiJson("/api/brands",{method:"POST",json:{name}});state.brands=await apiJson("/api/brands");location.hash="#/b/"+b.id}
+    catch(er){$("#er").textContent=er.message}};
+}
+
+/* ---------------- brand home ---------------- */
+async function viewBrand(bid){
+  const b=state.brands.find(x=>x.id===bid);
+  if(!b){state.brands=await apiJson("/api/brands");if(!state.brands.find(x=>x.id===bid))return shell(`<div class="card empty">${t("notFound")} <a href="#/">${t("home")}</a></div>`)}
+  const brand=state.brands.find(x=>x.id===bid);
+  try{localStorage.setItem("fasla.brand",bid)}catch(e){}
+  shell(`<div class="stack">
+    <div class="title"><h1>${esc(brand.name)}</h1><div class="spacer"></div>
+      <button class="btn sm" id="rn">${t("rename")}</button><button class="btn sm danger" id="db">${t("del")}</button></div>
+    <div class="steps">
+      <section class="card step"><h2><span class="num">1</span>${t("s1")}</h2><p>${t("s1p")}</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn primary" id="te">⤓ ${t("tEmpty")}</button><button class="btn" id="tx">⤓ ${t("tExample")}</button></div>
+        <ul class="sheetlist">${["sh1","sh2","sh3","sh4","sh5","sh6"].map(k=>`<li>${t(k)}</li>`).join("")}</ul></section>
+      <section class="card step"><h2><span class="num">2</span>${t("s2")}</h2>
+        <label class="drop" id="drop" tabindex="0"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#1D4A3E" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          <b>${t("dropB")}</b><span>${t("dropS",{mb:CFG.maxUploadMb||10})}</span><input type="file" id="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></label>
+        <div id="upst" class="hidden stack"><div style="font-size:14px">${t("uploading")}</div><div class="bar"><i id="upbar"></i></div></div>
+        <div id="uperr"></div></section>
+    </div>
+    <section class="card"><h2 style="font:700 19px/1.2 var(--display);margin:0 0 12px">${t("history")}</h2><div id="plans"><div class="empty">…</div></div></section>
+  </div>`,bid);
+  $("#te").onclick=()=>{location.href="/api/templates/empty"};
+  $("#tx").onclick=()=>{location.href="/api/templates/example"};
+  $("#rn").onclick=async()=>{const n=await promptBox(t("rename"),t("brandName"),brand.name);if(!n)return;
+    try{await apiJson("/api/brands/"+bid,{method:"PATCH",json:{name:n}});state.brands=await apiJson("/api/brands");toast(t("saved"));viewBrand(bid)}catch(e){toast(e.message)}};
+  $("#db").onclick=async()=>{if(!await confirmBox(t("delBrandQ"),t("delBrandP"),t("del")))return;
+    try{await api("/api/brands/"+bid,{method:"DELETE"});state.brands=await apiJson("/api/brands");try{localStorage.removeItem("fasla.brand")}catch(e){}toast(t("deleted"));location.hash="#/";route()}catch(e){toast(e.message)}};
+  const drop=$("#drop"),file=$("#file");
+  drop.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();file.click()}};
+  ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over")}));
+  ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over")}));
+  drop.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)upload(bid,f)});
+  file.onchange=()=>{if(file.files[0])upload(bid,file.files[0])};
+  loadPlans(bid);
+}
+async function loadPlans(bid){
+  let ps;try{ps=await apiJson(`/api/brands/${bid}/plans`)}catch(e){return}
+  const box=$("#plans");if(!box)return;
+  if(!ps.length){box.innerHTML=`<div class="empty">${t("noPlans")}</div>`;return}
+  box.innerHTML=`<div style="overflow-x:auto"><table class="list"><thead><tr><th>${t("colDate")}</th><th class="hide-sm">${t("colFile")}</th><th>${t("colStatus")}</th><th>${t("colProfit")}</th><th class="hide-sm">${t("colUnits")}</th><th></th></tr></thead><tbody>
+   ${ps.map(p=>`<tr class="row" data-p="${p.id}"><td>${dt(p.created_at)}</td><td class="hide-sm">${esc(p.input_name)}</td><td><span class="chip ${p.status}">${t("st_"+p.status)}</span></td>
+     <td>${p.summary?"EGP "+M(p.summary.profit):"—"}</td><td class="hide-sm">${p.summary?fmt(p.summary.units):"—"}</td>
+     <td style="text-align:end;white-space:nowrap">${p.status==="done"?`<button class="btn sm" data-rep="${p.id}" title="${t("report")}">⤓ Excel</button>`:""}<button class="btn sm ghost danger" data-del="${p.id}" aria-label="${t("del")}">✕</button></td></tr>`).join("")}
+   </tbody></table></div>`;
+  box.querySelectorAll("tr.row").forEach(r=>r.onclick=e=>{if(e.target.closest("button"))return;location.hash="#/p/"+r.dataset.p});
+  box.querySelectorAll("[data-rep]").forEach(b=>b.onclick=()=>download(`/api/plans/${b.dataset.rep}/report`,"fasla_report.xlsx"));
+  box.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!await confirmBox(t("delPlanQ"),t("delPlanP"),t("del")))return;
+    const r=await api("/api/plans/"+b.dataset.del,{method:"DELETE"});if(r.ok){toast(t("deleted"));loadPlans(bid)}else toast((await r.json()).detail)});
+  if(ps.some(p=>p.status==="queued"||p.status==="running"))state.poll=setTimeout(()=>loadPlans(bid),4000);
+}
+function upload(bid,f){
+  const err=$("#uperr");err.innerHTML="";
+  if(!/\.xlsx$/i.test(f.name)){err.innerHTML=`<div class="note bad">${L==="ar"?"ارفع ملف إكسل .xlsx":"Please upload an Excel .xlsx file."}</div>`;return}
+  if(f.size>(CFG.maxUploadMb||10)*1048576){err.innerHTML=`<div class="note bad">${L==="ar"?"الملف أكبر من المسموح":"The file is too large."}</div>`;return}
+  Auth.session().then(s=>{
+    const fd=new FormData();fd.append("file",f);
+    const x=new XMLHttpRequest();x.open("POST",`/api/brands/${bid}/uploads`);x.setRequestHeader("Authorization","Bearer "+s.token);
+    $("#upst").classList.remove("hidden");$("#drop").classList.add("hidden");
+    x.upload.onprogress=e=>{if(e.lengthComputable)$("#upbar").style.width=(e.loaded/e.total*90)+"%"};
+    x.onload=()=>{let j={};try{j=JSON.parse(x.responseText)}catch(e){}
+      $("#upbar").style.width="100%";
+      if(x.status===201){location.hash="#/p/"+j.plan_id;return}
+      $("#upst").classList.add("hidden");$("#drop").classList.remove("hidden");$("#file").value="";
+      if(x.status===401){toast(t("err401"));location.hash="#/login";return}
+      const errs=j.errors||[j.detail||x.statusText];
+      err.innerHTML=`<div class="note bad"><b>${t("fixFile")}</b><br>${t("fixFileP")}<ul style="margin:6px 0 0;padding-inline-start:18px">${errs.map(e=>`<li>${esc(e)}</li>`).join("")}</ul></div>`};
+    x.onerror=()=>{$("#upst").classList.add("hidden");$("#drop").classList.remove("hidden");toast(t("errNet"))};
+    x.send(fd);
+  });
+}
+
+/* ---------------- plan ---------------- */
+const FIELDS=[["budget","num",1000],["factory_moq","int",1],["min_per_color","int",1],["leftover_share","pct",1],["start_cash","num",1000],["deposit_share","pct",1],["lead_weeks","int",1],["ads_share","pct",1],["fixed_weekly","num",500]];
+async function viewPlan(pid){
+  let p;try{p=await apiJson("/api/plans/"+pid)}catch(e){if(e.status===404)return shell(`<div class="card empty">${t("notFound")} <a href="#/">${t("home")}</a></div>`);throw e}
+  const bid=p.brand_id;
+  const head=`<div class="title"><a class="btn sm ghost" href="#/b/${bid}">${L==="ar"?"→":"←"} ${t("backBrand")}</a><div class="spacer"></div><span class="chip ${p.status}">${t("st_"+p.status)}</span></div>`;
+  if(p.status==="queued"||p.status==="running")return viewRunning(p,head);
+  if(p.status==="done")return viewDone(p,head);
+  return viewReview(p,head);
+}
+function viewReview(p,head){
+  const st=(p.checks&&p.checks.stats)||{},w=(p.checks&&p.checks.warnings)||[],s=p.settings||{};
+  const val=(k,kind)=>kind==="pct"?Math.round((s[k]||0)*1000)/10:s[k];
+  shell(`<div class="stack">${head}
+    ${p.status==="failed"?`<div class="note bad"><b>${t("failedH")}</b><br>${esc(p.error||"")}</div>`:""}
+    <section class="card stack"><div><div class="eyebrow">${esc(p.input_name)}</div><h1 style="font:800 28px/1.15 var(--display);margin:6px 0 4px">${t("review")}</h1><p style="margin:0;color:var(--ink2)">${t("reviewP")}</p></div>
+      <div class="stats">${[[fmt(st.orders||0),t("orders")],[st.styles,t("styles")],[(st.seasons||[]).length,t("seasons")],[(st.couriers||[]).length,t("couriersN")],[st.zones,t("zonesN")],[st.owner_estimates||0,t("estimates")]]
+        .map(([a,b])=>`<div class="stat"><b>${esc(a)}</b><span>${esc(b)}</span></div>`).join("")}
+        <div class="stat"><b style="font-size:15px">${esc(st.date_from||"")} → ${esc(st.date_to||"")}</b><span>${esc((st.seasons||[]).join(" · "))}</span></div></div>
+      ${w.length?`<div class="note warn"><b>${t("warnings")}</b><ul style="margin:6px 0 0;padding-inline-start:18px">${w.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}
+    </section>
+    <form class="card stack" id="sf" novalidate><h2 style="font:700 19px/1.2 var(--display);margin:0">${t("settings")}</h2>
+      <div class="form">${FIELDS.map(([k,kind,step])=>`<div class="field"><label for="f_${k}">${t("f_"+k)}</label><input class="input" id="f_${k}" type="number" inputmode="decimal" step="${kind==="pct"?0.5:step}" value="${esc(val(k,kind))}" required><small>${t("h_"+k)}</small></div>`).join("")}</div>
+      <div class="err" id="er" role="alert"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn chalk" id="go">▶ ${t("runPlan")}</button><a class="btn" href="#/b/${p.brand_id}">${t("replace")}</a></div></form>
+  </div>`,p.brand_id);
+  $("#sf").onsubmit=async e=>{e.preventDefault();const out={};
+    for(const[k,kind] of FIELDS){const v=parseFloat($("#f_"+k).value);if(!isFinite(v)){$("#er").textContent=t("f_"+k)+" ?";return}out[k]=kind==="pct"?v/100:v}
+    $("#go").disabled=true;$("#er").textContent="";
+    try{await apiJson(`/api/plans/${p.id}/run`,{method:"POST",json:{settings:out}});viewPlan(p.id)}
+    catch(er){$("#er").textContent=er.message;$("#go").disabled=false}};
+}
+function viewRunning(p,head){
+  const steps=["r1","r2","r3","r4","r5","r6"];
+  shell(`<div class="stack">${head}<section class="run gridbg" aria-live="polite"><div class="eyebrow" style="color:#A9C4B9">${esc(p.input_name)}</div>
+    <h2>${t("runningH")}</h2><p style="margin:0;color:#BFD3CA">${t("runningP")}</p>
+    <ul class="runsteps" id="rs">${steps.map(k=>`<li><i></i>${t(k)}</li>`).join("")}</ul>
+    <div style="color:#A9C4B9;font-variant-numeric:tabular-nums" id="el"></div></section></div>`,p.brand_id);
+  const t0=Date.now(),est=[3,8,14,55,75,90];
+  const tick=async()=>{const s=(Date.now()-t0)/1000;
+    const i=est.findIndex(x=>s<x);document.querySelectorAll("#rs li").forEach((li,j)=>{li.className=j<(i<0?5:i)?"ok":j===(i<0?5:i)?"on":"";li.querySelector("i").textContent=li.className==="ok"?"✓":""});
+    if($("#el"))$("#el").textContent=Math.floor(s/60)+":"+String(Math.floor(s%60)).padStart(2,"0");
+    if(Math.round(s)%2===0){try{const q=await apiJson("/api/plans/"+p.id);if(q.status!=="queued"&&q.status!=="running"){viewPlan(p.id);return}}catch(e){}}
+    state.poll=setTimeout(tick,1000)};
+  tick();
+}
+function viewDone(p,head){
+  const v=p.view,b=v.variants[v.base];
+  shell(`<div class="stack">${head}
+    <div class="planbar"><div><div class="eyebrow">${esc(p.input_name)} · ${dt(p.finished_at||p.created_at)}</div>
+      <h1 style="font:800 26px/1.15 var(--display);margin:4px 0 0">${t("planOf",{d:dt(p.created_at)})}</h1></div><div class="spacer"></div>
+      <button class="btn primary" id="rep">⤓ ${t("report")}</button><button class="btn" id="inp">⤓ ${t("input")}</button><button class="btn" id="again">${t("runAgain")}</button></div>
+    <iframe class="results" id="res" title="Plan" src="/static/results.html?embed=1"></iframe></div>`,p.brand_id);
+  $("#rep").onclick=()=>download(`/api/plans/${p.id}/report`,"fasla_report.xlsx");
+  $("#inp").onclick=()=>download(`/api/plans/${p.id}/input`,"fasla_input.xlsx");
+  $("#again").onclick=()=>viewReview({...p,status:"draft"},head.replace(/chip done/,"chip draft"));
+  const fr=$("#res");
+  const send=()=>fr.contentWindow.postMessage({type:"plan",data:v,lang:L},location.origin);
+  window.onmessage=e=>{if(e.origin!==location.origin||e.source!==fr.contentWindow)return;
+    if(e.data.type==="ready")send();if(e.data.type==="height")fr.style.height=(e.data.h+20)+"px"};
+}
+route();
+</script>
+</body>
+</html>
