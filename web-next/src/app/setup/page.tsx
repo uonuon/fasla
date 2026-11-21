@@ -595,7 +595,7 @@ function StepSeason({ up, styles, headRef, back }: { up: Uploaded; styles: Style
         </button>
       </div>
       <p className="tiny muted" style={{ margin: 0 }}>
-        Planning takes about a minute. <Link href="/">Back to your brands</Link>
+        Planning usually takes 1–3 minutes. <Link href="/">Back to your brands</Link>
       </p>
     </form>
   );

@@ -1,5 +1,9 @@
 import * as path from "path";
 import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from "aws-cdk-lib";
+import * as appscaling from "aws-cdk-lib/aws-applicationautoscaling";
+import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
+import * as cwActions from "aws-cdk-lib/aws-cloudwatch-actions";
+import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
@@ -21,6 +25,10 @@ export interface AppStackProps extends StackProps {
  *
  * The task runs two containers: the web app (Python) and the AI service (Node, ai/) as a sidecar that only
  * listens on localhost, so only the web app can reach it. The AI service calls Amazon Bedrock with the task role.
+ *
+ * Plans don't run in the web task: "Build my plan" puts a job on an SQS queue and a separate worker service
+ * (same image, `python -m fasla.worker`) runs it. The worker scales from 0 when a job arrives and back to 0
+ * after 10 idle minutes, so planning capacity costs nothing while nobody is planning.
  *
  * Cost notes: no NAT gateway (tasks sit in public subnets with a public IP and only accept traffic from the
  * load balancer), one task, 2-week log retention. CloudFront gives HTTPS on a *.cloudfront.net address
@@ -61,6 +69,35 @@ export class AppStack extends Stack {
     // Alerts (AI budget 80% / 100%). Subscribe an email to this topic in the SNS console.
     const alerts = new sns.Topic(this, "Alerts", { topicName: "fasla-alerts", displayName: "Fasla alerts" });
 
+    // ---- planning queue ----
+    const deadLetters = new sqs.Queue(this, "PlanJobsDlq", { retentionPeriod: Duration.days(14) });
+    const planQueue = new sqs.Queue(this, "PlanJobs", {
+      visibilityTimeout: Duration.minutes(20), // longer than the slowest plan
+      retentionPeriod: Duration.days(1),
+      receiveMessageWaitTime: Duration.seconds(20),
+      // the worker marks a plan failed on its 3rd attempt; this only catches anything it couldn't handle
+      deadLetterQueue: { queue: deadLetters, maxReceiveCount: 4 },
+      enforceSSL: true,
+    });
+
+    const appEnv = {
+      AUTH_MODE: "supabase",
+      STORAGE_MODE: "supabase",
+      SUPABASE_BUCKET: "fasla-files",
+      SOLVER_SECONDS: "25",
+      MAX_UPLOAD_MB: "10",
+      GOOGLE_LOGIN: "0",
+      PLAN_QUEUE_URL: planQueue.queueUrl,
+      AWS_REGION: this.region,
+    };
+    const appSecrets = {
+      SUPABASE_URL: secret("SUPABASE_URL"),
+      SUPABASE_ANON_KEY: secret("SUPABASE_ANON_KEY"),
+      SUPABASE_SERVICE_ROLE_KEY: secret("SUPABASE_SERVICE_ROLE_KEY"),
+      SUPABASE_JWT_SECRET: secret("SUPABASE_JWT_SECRET"),
+      DATABASE_URL: secret("DATABASE_URL"),
+    };
+
     const aiModels = {
       fast: "eu.anthropic.claude-haiku-5-5",
       smart: "eu.anthropic.claude-sonnet-5-5",
@@ -68,8 +105,8 @@ export class AppStack extends Stack {
 
     const svc = new ecsPatterns.ApplicationLoadBalancedFargateService(this, "Web", {
       cluster,
-      cpu: 1024, // planning is CPU-bound: ~1 vCPU for 30-90 s per plan
-      memoryLimitMiB: 2048,
+      cpu: 512, // planning runs on the worker; the web task serves pages, uploads and the AI sidecar
+      memoryLimitMiB: 1024,
       desiredCount: 1,
       minHealthyPercent: 100, // keep the old task until the new one is healthy (no downtime)
       maxHealthyPercent: 200,
@@ -83,24 +120,8 @@ export class AppStack extends Stack {
         image: ecs.ContainerImage.fromDockerImageAsset(image),
         containerPort: 8000,
         logDriver: ecs.LogDrivers.awsLogs({ streamPrefix: "web", logGroup }),
-        environment: {
-          AUTH_MODE: "supabase",
-          STORAGE_MODE: "supabase",
-          SUPABASE_BUCKET: "fasla-files",
-          PLAN_WORKERS: "1",
-          SOLVER_SECONDS: "25",
-          MAX_UPLOAD_MB: "10",
-          GOOGLE_LOGIN: "0",
-          AI_URL: "http://127.0.0.1:3001",
-        },
-        secrets: {
-          AI_INTERNAL_KEY: ecs.Secret.fromSecretsManager(aiKey),
-          SUPABASE_URL: secret("SUPABASE_URL"),
-          SUPABASE_ANON_KEY: secret("SUPABASE_ANON_KEY"),
-          SUPABASE_SERVICE_ROLE_KEY: secret("SUPABASE_SERVICE_ROLE_KEY"),
-          SUPABASE_JWT_SECRET: secret("SUPABASE_JWT_SECRET"),
-          DATABASE_URL: secret("DATABASE_URL"),
-        },
+        environment: { ...appEnv, PLAN_WORKERS: "1", AI_URL: "http://127.0.0.1:3001" },
+        secrets: { ...appSecrets, AI_INTERNAL_KEY: ecs.Secret.fromSecretsManager(aiKey) },
       },
     });
 
@@ -146,6 +167,83 @@ export class AppStack extends Stack {
     );
     alerts.grantPublish(svc.taskDefinition.taskRole);
 
+    planQueue.grantSendMessages(svc.taskDefinition.taskRole);
+
+    // ---- planning worker: same image, scales 0 <-> 1 ----
+    const workerServiceName = "fasla-worker";
+    const workerTask = new ecs.FargateTaskDefinition(this, "WorkerTask", { cpu: 1024, memoryLimitMiB: 2048 });
+    workerTask.addContainer("worker", {
+      image: ecs.ContainerImage.fromDockerImageAsset(image),
+      command: ["python", "-m", "fasla.worker"],
+      logging: ecs.LogDrivers.awsLogs({ streamPrefix: "worker", logGroup }),
+      environment: {
+        ...appEnv,
+        WORKER_CLUSTER: cluster.clusterName,
+        WORKER_SERVICE: workerServiceName,
+        WORKER_IDLE_MINUTES: "10",
+      },
+      secrets: appSecrets,
+      stopTimeout: Duration.seconds(120), // let a plan in progress finish on deploys
+    });
+    const worker = new ecs.FargateService(this, "Worker", {
+      cluster,
+      serviceName: workerServiceName,
+      taskDefinition: workerTask,
+      desiredCount: 0,
+      minHealthyPercent: 0,
+      maxHealthyPercent: 100,
+      assignPublicIp: true, // public subnets, no NAT: outbound only (security group has no inbound rules)
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+      circuitBreaker: { enable: true, rollback: true },
+    });
+    planQueue.grantConsumeMessages(workerTask.taskRole);
+    workerTask.taskRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ["ecs:UpdateService"], // only to scale itself back to zero when idle
+        resources: [`arn:aws:ecs:${this.region}:${this.account}:service/${cluster.clusterName}/${workerServiceName}`],
+      }),
+    );
+    // Scale out: a job is waiting (visible or in flight) -> run 1 worker. Scale in is done by the worker itself.
+    const scaling = new appscaling.ScalableTarget(this, "WorkerScaling", {
+      serviceNamespace: appscaling.ServiceNamespace.ECS,
+      scalableDimension: "ecs:service:DesiredCount",
+      resourceId: `service/${cluster.clusterName}/${worker.serviceName}`,
+      minCapacity: 0,
+      maxCapacity: 1,
+    });
+    scaling.node.addDependency(worker);
+    const backlog = new cloudwatch.MathExpression({
+      expression: "visible + inflight",
+      usingMetrics: {
+        visible: planQueue.metricApproximateNumberOfMessagesVisible({ period: Duration.minutes(1), statistic: "Maximum" }),
+        inflight: planQueue.metricApproximateNumberOfMessagesNotVisible({ period: Duration.minutes(1), statistic: "Maximum" }),
+      },
+      period: Duration.minutes(1),
+      label: "Plan jobs waiting or running",
+    });
+    const scaleOut = new appscaling.StepScalingAction(this, "WorkerScaleOut", {
+      scalingTarget: scaling,
+      adjustmentType: appscaling.AdjustmentType.EXACT_CAPACITY,
+      cooldown: Duration.seconds(60),
+      metricAggregationType: appscaling.MetricAggregationType.MAXIMUM,
+    });
+    scaleOut.addAdjustment({ lowerBound: 0, adjustment: 1 });
+    new cloudwatch.Alarm(this, "PlanJobsWaiting", {
+      alarmDescription: "A plan job is waiting: start the planning worker",
+      metric: backlog,
+      threshold: 1,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    }).addAlarmAction(new cwActions.ApplicationScalingAction(scaleOut));
+    new cloudwatch.Alarm(this, "PlanJobsDeadLetters", {
+      alarmDescription: "A plan job could not be processed (dead-letter queue)",
+      metric: deadLetters.metricApproximateNumberOfMessagesVisible({ period: Duration.minutes(5) }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    }).addAlarmAction(new cwActions.SnsAction(alerts));
+
     svc.targetGroup.configureHealthCheck({
       path: "/healthz",
       healthyHttpCodes: "200",
@@ -182,5 +280,6 @@ export class AppStack extends Stack {
     new CfnOutput(this, "AppUrl", { value: `https://${distribution.distributionDomainName}` });
     new CfnOutput(this, "LogGroupName", { value: logGroup.logGroupName });
     new CfnOutput(this, "AlertsTopicArn", { value: alerts.topicArn });
+    new CfnOutput(this, "PlanQueueUrl", { value: planQueue.queueUrl });
   }
 }

@@ -24,6 +24,7 @@ from .config import ROOT, Settings, get_settings
 from .db import brands, dev_users, make_engine, plans
 from . import ai
 from .ai_context import plan_context
+from .queue import make_queue
 from .planner import WorkbookError, clean_settings, read_orders_table, read_workbook, run_plan_on, template_bytes
 from .simple import ai_sample, unknown_statuses
 from .storage import StorageError, make_storage
@@ -33,6 +34,7 @@ S: Settings = get_settings()
 engine = make_engine(S.database_url)
 storage = make_storage(S)
 pool = ThreadPoolExecutor(max_workers=S.workers)
+plan_queue = make_queue(S.plan_queue_url, S.aws_region)   # None locally: plans run on `pool` instead
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
@@ -54,10 +56,16 @@ def _recover():
         log.error("Cannot reach the database (%s). Check DATABASE_URL: host, port 5432, user and password.",
                   type(e).__name__ + ": " + str(e).splitlines()[0][:300])
         raise
+    if plan_queue is not None:   # the worker service owns queued/running plans (and retries them)
+        return _check_config()
     with engine.begin() as c:
         c.execute(update(plans).where(plans.c.status.in_(["queued", "running"]))
                   .values(status="failed", error="The server restarted during planning. Please run it again.",
                           finished_at=datetime.now(timezone.utc)))
+    _check_config()
+
+
+def _check_config():
     probs = S.validate()
     if any(p.startswith("AUTH_MODE=dev") for p in probs):
         raise RuntimeError(probs[-1])
@@ -374,6 +382,7 @@ class RunIn(BaseModel):
 
 
 def _job(pid: uuid.UUID, user_id: uuid.UUID):
+    """Run one plan. Used by the in-process pool (local) and by fasla/worker.py (AWS)."""
     try:
         with engine.begin() as con:
             r = con.execute(select(plans).where(plans.c.id == pid)).mappings().first()
@@ -427,8 +436,16 @@ def run_plan(pid: uuid.UUID, body: RunIn, user: User = Depends(current_user)):
                 raise HTTPException(400, "Add the cost to make each style. Missing: " + ", ".join(missing[:8])
                                     + (f" and {len(missing) - 8} more." if len(missing) > 8 else "."))
             con.execute(update(plans).where(plans.c.id == pid).values(status="queued", settings=st, error=None, view=None))
-    pool.submit(_job, pid, user.id)
-    return {"ok": True, "status": "queued"}
+    if plan_queue is not None:
+        try:
+            plan_queue.send(str(pid), str(user.id))
+        except Exception:  # noqa: BLE001
+            log.exception("could not queue plan %s", pid)
+            _fail(pid, "We couldn't start planning. Please try again.")
+            raise HTTPException(503, "We couldn't start planning. Please try again in a minute.")
+    else:
+        pool.submit(_job, pid, user.id)
+    return {"ok": True, "status": "queued", "queued": plan_queue is not None}
 
 
 def _file(pid: uuid.UUID, user: User, which: str):

@@ -49,6 +49,8 @@ class Settings:
     public_url: str = _env("PUBLIC_URL", "")
     ai_url: str = _env("AI_URL", "").rstrip("/")                 # the AI sidecar, e.g. http://127.0.0.1:3001; empty = AI off
     ai_internal_key: str = _env("AI_INTERNAL_KEY", "")
+    plan_queue_url: str = _env("PLAN_QUEUE_URL", "")             # SQS: plans run on the worker service; empty = in-process
+    aws_region: str = _env("AWS_REGION", "eu-north-1")
 
     def validate(self) -> list[str]:
         probs = []

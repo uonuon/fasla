@@ -97,8 +97,8 @@ function PlanScreen({ id, email }: { id: string; email: string }) {
             <div className="spin" aria-hidden="true" />
             <h1 style={{ fontSize: 24 }}>Building your plan…</h1>
             <p className="muted">
-              Fasla is testing hundreds of possible seasons to find the best quantities. This usually takes under a minute. You can leave this
-              page and come back.
+              Fasla is testing hundreds of possible seasons to find the best quantities. This usually takes 1–3 minutes (a little longer
+              if nobody has planned for a while, while a planner starts up). You can leave this page and come back.
             </p>
           </div>
         </div>
