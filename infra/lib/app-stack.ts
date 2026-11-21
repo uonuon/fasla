@@ -5,6 +5,7 @@ import * as appscaling from "aws-cdk-lib/aws-applicationautoscaling";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import * as cwActions from "aws-cdk-lib/aws-cloudwatch-actions";
 import * as sqs from "aws-cdk-lib/aws-sqs";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
@@ -274,8 +275,15 @@ export class AppStack extends Stack {
       "CloudFront only",
     );
 
+    // Custom domain: the certificate lives in us-east-1 (CloudFront requires it there) and is validated by a DNS
+    // record at Cloudflare. Leave CUSTOM_DOMAIN unset to serve only on the *.cloudfront.net address.
+    const domain = this.node.tryGetContext("customDomain") as string | undefined;
+    const certArn = this.node.tryGetContext("customDomainCertArn") as string | undefined;
     const distribution = new cloudfront.Distribution(this, "Cdn", {
       comment: "Fasla",
+      ...(domain && certArn
+        ? { domainNames: [domain], certificate: acm.Certificate.fromCertificateArn(this, "DomainCert", certArn) }
+        : {}),
       defaultBehavior: {
         origin: new origins.LoadBalancerV2Origin(svc.loadBalancer, {
           protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
@@ -289,7 +297,8 @@ export class AppStack extends Stack {
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
     });
 
-    new CfnOutput(this, "AppUrl", { value: `https://${distribution.distributionDomainName}` });
+    new CfnOutput(this, "AppUrl", { value: `https://${domain && certArn ? domain : distribution.distributionDomainName}` });
+    new CfnOutput(this, "CloudFrontDomain", { value: distribution.distributionDomainName });
     new CfnOutput(this, "LogGroupName", { value: logGroup.logGroupName });
     new CfnOutput(this, "AlertsTopicArn", { value: alerts.topicArn });
     new CfnOutput(this, "PlanQueueUrl", { value: planQueue.queueUrl });

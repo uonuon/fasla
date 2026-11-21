@@ -1,4 +1,7 @@
 {
   "app": "npx tsx bin/fasla.ts",
-  "context": {}
+  "context": {
+    "customDomain": "fasla.dotcraft.app",
+    "customDomainCertArn": "arn:aws:acm:us-east-1:149320913851:certificate/9391d3ce-cfbd-4d67-aa6e-995738f777c3"
+  }
 }
