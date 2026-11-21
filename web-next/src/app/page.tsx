@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import SignIn from "@/components/SignIn";
+import Landing from "@/components/Landing";
 import { ErrorBox, Loading, TopBar, useSession } from "@/components/shell";
 import { apiJson, postJson } from "@/lib/api";
 import { fmt, short } from "@/lib/format";
@@ -21,7 +21,7 @@ const STATUS: Record<string, string> = {
 export default function Home() {
   const session = useSession();
   if (session === undefined) return <Loading />;
-  if (session === null) return <SignIn />;
+  if (session === null) return <Landing />;
   return <Brands email={session.email} />;
 }
 

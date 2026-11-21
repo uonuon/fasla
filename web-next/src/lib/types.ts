@@ -41,6 +41,8 @@ export type Checks = {
     style_list?: { id: string; name: string; price: number; cost: number | null; sold_last_year: number }[];
     columns?: Record<string, string>;
     ai_mapped?: boolean;
+    personal_removed?: string[];
+    dropped_columns?: number;
   };
 };
 

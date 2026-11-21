@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { postJson } from "@/lib/api";
 import { fmt } from "@/lib/format";
+import { track } from "@/lib/track";
 import type { Plan } from "@/lib/types";
 
 const FIELDS = [
@@ -79,7 +80,7 @@ export default function Replan({ plan, onStarted }: { plan: Plan; onStarted: () 
 
   if (!open)
     return (
-      <button type="button" className="btn" onClick={() => setOpen(true)}>
+      <button type="button" className="btn" onClick={() => { setOpen(true); track("replan_open"); }}>
         Change numbers &amp; re-plan
       </button>
     );

@@ -273,3 +273,24 @@ def style_summary(products: pd.DataFrame, orders: pd.DataFrame) -> list[dict]:
                         cost=None if c.empty else float(c.median()), sold_last_year=int(last.get(sid, 0))))
     out.sort(key=lambda s: -s["sold_last_year"])
     return out
+
+
+def minimal_csv(table: pd.DataFrame, used: dict) -> bytes:
+    """Only the columns Fasla reads (plus the order number, which links an order's lines). Everything else,
+    such as customer names, phones, emails and addresses, is dropped before the file is stored."""
+    norm = [_norm(c) or f"column_{i + 1}" for i, c in enumerate(table.columns)]
+    keep_norm = set(used.values()) | {c for c in ("name", "order_id", "order_number", "order", "order_no") if c in norm}
+    keep = [orig for orig, n in zip(table.columns, norm) if n in keep_norm]
+    return table[keep].to_csv(index=False).encode("utf-8")
+
+
+PERSONAL_HINTS = ("email", "phone", "mobile", "billing", "address", "customer", "first_name", "last_name", "zip",
+                  "postal", "company", "note", "tax", "national_id", "ip_address", "الهاتف", "الاسم", "العنوان",
+                  "تليفون", "موبايل")
+
+
+def personal_columns(table: pd.DataFrame, used: dict | None = None) -> list[str]:
+    """Columns that look like customer personal data and that Fasla does not use (they are dropped)."""
+    keep = set((used or {}).values())
+    return [str(c) for c in table.columns
+            if _norm(c) not in keep and any(h in _norm(c) for h in PERSONAL_HINTS)]

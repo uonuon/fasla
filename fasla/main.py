@@ -9,7 +9,7 @@ import re
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from functools import lru_cache
 
@@ -21,12 +21,12 @@ from sqlalchemy import and_, delete, insert, select, update
 
 from .auth import User, check_pw, current_user, dev_token, hash_pw
 from .config import ROOT, Settings, get_settings
-from .db import brands, dev_users, make_engine, plans
+from .db import brands, consents, dev_users, events, init_private, make_engine, plans
 from . import ai
 from .ai_context import plan_context
 from .queue import make_queue
 from .planner import WorkbookError, clean_settings, read_orders_table, read_workbook, run_plan_on, template_bytes
-from .simple import ai_sample, unknown_statuses
+from .simple import ai_sample, minimal_csv, personal_columns, unknown_statuses
 from .storage import StorageError, make_storage
 
 log = logging.getLogger("fasla")
@@ -56,6 +56,7 @@ def _recover():
         log.error("Cannot reach the database (%s). Check DATABASE_URL: host, port 5432, user and password.",
                   type(e).__name__ + ": " + str(e).splitlines()[0][:300])
         raise
+    init_private(engine)
     if plan_queue is not None:   # the worker service owns queued/running plans (and retries them)
         return _check_config()
     with engine.begin() as c:
@@ -205,7 +206,9 @@ def _ser(r, keys):
 
 @app.get("/api/me")
 def me(user: User = Depends(current_user)):
-    return {"id": str(user.id), "email": user.email}
+    c = _consent(user.id)
+    return {"id": str(user.id), "email": user.email, "admin": _is_admin(user), "terms_version": TERMS_VERSION,
+            "consent": None if not c else {"terms_version": c["terms_version"], "improve_data": c["improve_data"]}}
 
 
 @app.get("/api/brands")
@@ -229,6 +232,7 @@ def create_brand(b: BrandIn, user: User = Depends(current_user)):
             raise HTTPException(400, "You can have up to 20 brands")
         bid = uuid.uuid4()
         con.execute(insert(brands).values(id=bid, user_id=user.id, name=name))
+    track("brand_created", user.id)
     return {"id": str(bid), "name": name}
 
 
@@ -287,9 +291,20 @@ async def upload(bid: uuid.UUID, file: UploadFile = File(...), user: User = Depe
     try:
         parsed, mapping = _smart_parse(data, str(user.id))
     except WorkbookError as e:
+        track("upload_failed", user.id, kind=ext, error=" | ".join(e.errors)[:300])
         return JSONResponse({"ok": False, "errors": e.errors}, status_code=422)
     if mapping:
         parsed["settings"] = {**parsed["settings"], "_mapping": mapping}
+    # Privacy: for orders files keep only the columns Fasla reads; customer details never get stored.
+    removed: list[str] = []
+    if parsed["checks"]["stats"].get("mode") == "orders":
+        table = read_orders_table(data)
+        if table is not None:
+            used = dict(parsed["checks"]["stats"].get("columns") or {})
+            removed = personal_columns(table, used)
+            data, ext = minimal_csv(table, used), "csv"
+            parsed["checks"]["stats"]["dropped_columns"] = len(table.columns) - len(used)
+            parsed["checks"]["stats"]["personal_removed"] = removed[:12]
     pid = uuid.uuid4()
     path = f"{user.id}/{bid}/{pid}/input.{ext}"
     try:
@@ -302,6 +317,10 @@ async def upload(bid: uuid.UUID, file: UploadFile = File(...), user: User = Depe
             storage.put(path, data, XLSX)
     except StorageError as e:
         raise HTTPException(502, f"Couldn't save the file: {e}")
+    st_ = parsed["checks"]["stats"]
+    track("upload_ok", user.id, mode=st_.get("mode"), orders=st_.get("orders"), styles=st_.get("styles"),
+          seasons=len(st_.get("seasons") or []), ai_mapped=bool(st_.get("ai_mapped")),
+          example=(file.filename or "").startswith("fasla_example"))
     with engine.begin() as con:
         con.execute(insert(plans).values(id=pid, brand_id=bid, user_id=user.id, status="draft",
                                          input_name=file.filename[:200], input_path=path,
@@ -352,6 +371,97 @@ def _smart_parse(data: bytes, user_id: str) -> tuple[dict, dict]:
     return parsed, mapping
 
 
+# ---------------- usage tracking (first-party, no third parties) ----------------
+EVENT_NAMES = {
+    # server-side
+    "signup", "brand_created", "upload_ok", "upload_failed", "plan_started", "plan_done", "plan_failed", "replan",
+    "ai_explain", "ai_ask", "consent",
+    # sent by the browser
+    "page_view", "budget_change", "style_open", "report_download", "replan_open", "example_used", "setup_step",
+}
+
+
+def track(name: str, user_id=None, **props) -> None:
+    """Record a product event. Never raises: tracking must not break the product."""
+    try:
+        with engine.begin() as con:
+            con.execute(insert(events).values(user_id=user_id, name=name[:40], props=props or None))
+    except Exception:  # noqa: BLE001
+        log.warning("could not record event %s", name, exc_info=True)
+
+
+class EventIn(BaseModel):
+    name: str = Field(max_length=40)
+    props: dict = Field(default_factory=dict)
+
+
+@app.post("/api/events", status_code=204)
+def post_event(e: EventIn, user: User = Depends(current_user)):
+    if e.name in EVENT_NAMES and len(json.dumps(e.props)) <= 1000:
+        track(e.name, user.id, **{str(k)[:30]: v for k, v in list(e.props.items())[:10]})
+    return Response(status_code=204)
+
+
+TERMS_VERSION = "2026-11-22"
+
+
+class ConsentIn(BaseModel):
+    terms_version: str = Field(max_length=20)
+    improve_data: bool = False
+
+
+def _consent(user_id):
+    with engine.connect() as con:
+        return con.execute(select(consents).where(consents.c.user_id == user_id)).mappings().first()
+
+
+@app.post("/api/consent")
+def post_consent(c: ConsentIn, user: User = Depends(current_user)):
+    if c.terms_version != TERMS_VERSION:
+        raise HTTPException(400, "Please reload the page to see the latest terms.")
+    first = _consent(user.id) is None
+    with engine.begin() as con:
+        con.execute(delete(consents).where(consents.c.user_id == user.id))
+        con.execute(insert(consents).values(user_id=user.id, terms_version=c.terms_version, improve_data=c.improve_data,
+                                            updated_at=datetime.now(timezone.utc)))
+    track("consent", user.id, improve_data=c.improve_data)
+    if first:
+        track("signup", user.id)
+    return {"ok": True}
+
+
+def _is_admin(user: User) -> bool:
+    admins = {a.strip().lower() for a in S.admin_emails.split(",") if a.strip()}
+    return bool(user.email) and user.email.lower() in admins
+
+
+@app.get("/api/admin/metrics")
+def admin_metrics(days: int = 14, user: User = Depends(current_user)):
+    if not _is_admin(user):
+        raise HTTPException(404, "Not found")
+    from sqlalchemy import func
+    since = datetime.now(timezone.utc) - timedelta(days=max(1, min(days, 180)))
+    with engine.connect() as con:
+        by_name = dict(con.execute(select(events.c.name, func.count(func.distinct(events.c.user_id)))
+                                   .where(events.c.created_at >= since).group_by(events.c.name)).all())
+        totals = dict(con.execute(select(events.c.name, func.count()).where(events.c.created_at >= since)
+                                  .group_by(events.c.name)).all())
+        rows = con.execute(select(events.c.name, events.c.created_at, events.c.props)
+                           .where(events.c.created_at >= since).order_by(events.c.created_at.desc()).limit(5000)).all()
+        failures = [dict(at=r.created_at.isoformat(), **(r.props or {})) for r in rows if r.name in ("upload_failed", "plan_failed")][:30]
+        consent_rows = con.execute(select(consents.c.improve_data, func.count()).group_by(consents.c.improve_data)).all()
+    daily: dict[str, dict[str, int]] = {}
+    for r in rows:
+        d = r.created_at.date().isoformat()
+        daily.setdefault(d, {}).setdefault(r.name, 0)
+        daily[d][r.name] += 1
+    funnel = [(k, by_name.get(k, 0)) for k in ("signup", "brand_created", "upload_ok", "plan_started", "plan_done",
+                                               "page_view", "replan", "report_download", "ai_explain", "ai_ask")]
+    return {"days": days, "funnel_users": funnel, "event_totals": totals,
+            "daily": dict(sorted(daily.items(), reverse=True)), "recent_failures": failures,
+            "improve_data_opt_in": {str(bool(k)).lower(): n for k, n in consent_rows}}
+
+
 def _ai_error(e: ai.AIError) -> JSONResponse:
     code = e.body.get("code", "ai_error")
     status = e.status if e.status in (400, 413, 429, 502, 503) else 503
@@ -397,6 +507,7 @@ def _job(pid: uuid.UUID, user_id: uuid.UUID):
             con.execute(update(plans).where(plans.c.id == pid).values(
                 status="done", view=json.loads(json.dumps(view)), summary=summary, report_path=rpath, error=None,
                 finished_at=datetime.now(timezone.utc)))
+        track("plan_done", user_id, units=summary.get("units"), seasons=view["history"]["seasons"])
     except WorkbookError as e:
         _fail(pid, "; ".join(e.errors))
     except Exception as e:  # noqa: BLE001
@@ -406,6 +517,7 @@ def _job(pid: uuid.UUID, user_id: uuid.UUID):
 
 
 def _fail(pid, msg):
+    track("plan_failed", None, plan=str(pid), error=msg[:300])
     with engine.begin() as con:
         con.execute(update(plans).where(plans.c.id == pid).values(status="failed", error=msg[:500],
                                                                   finished_at=datetime.now(timezone.utc)))
@@ -435,7 +547,9 @@ def run_plan(pid: uuid.UUID, body: RunIn, user: User = Depends(current_user)):
             if missing:
                 raise HTTPException(400, "Add the cost to make each style. Missing: " + ", ".join(missing[:8])
                                     + (f" and {len(missing) - 8} more." if len(missing) > 8 else "."))
+            was_done = r["status"] == "done"
             con.execute(update(plans).where(plans.c.id == pid).values(status="queued", settings=st, error=None, view=None))
+    track("replan" if was_done else "plan_started", user.id)
     if plan_queue is not None:
         try:
             plan_queue.send(str(pid), str(user.id))
@@ -517,7 +631,9 @@ def ai_usage(user: User = Depends(current_user)):
 def explain_plan(pid: uuid.UUID, user: User = Depends(current_user)):
     key, ctx = _done_plan(pid, user)
     try:
-        return ai.explain(str(user.id), key, ctx)
+        r = ai.explain(str(user.id), key, ctx)
+        track("ai_explain", user.id, cached=bool(r.get("cached")))
+        return r
     except ai.AIError as e:
         return _ai_error(e)
 
@@ -527,7 +643,9 @@ def ask_plan(pid: uuid.UUID, body: AskIn, user: User = Depends(current_user)):
     key, ctx = _done_plan(pid, user)
     history = [{"role": str(m.get("role", "")), "text": str(m.get("text", ""))[:1500]} for m in body.history[-6:]]
     try:
-        return ai.ask(str(user.id), key, ctx, body.question.strip(), history)
+        r = ai.ask(str(user.id), key, ctx, body.question.strip(), history)
+        track("ai_ask", user.id)
+        return r
     except ai.AIError as e:
         return _ai_error(e)
 

@@ -95,6 +95,8 @@ def ecs_scale_to_zero():
 def main():
     logging.basicConfig(level=logging.INFO, format='{"level":"%(levelname)s","logger":"%(name)s","msg":"%(message)s"}')
     from . import main as app
+    from .db import init_private
+    init_private(app.engine)
     if app.plan_queue is None:
         raise SystemExit("PLAN_QUEUE_URL is not set: nothing to work on")
 

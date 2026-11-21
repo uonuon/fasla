@@ -1,4 +1,5 @@
 import * as path from "path";
+import * as cdk from "aws-cdk-lib";
 import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from "aws-cdk-lib";
 import * as appscaling from "aws-cdk-lib/aws-applicationautoscaling";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
@@ -66,6 +67,13 @@ export class AppStack extends Stack {
       generateSecretString: { passwordLength: 48, excludePunctuation: true },
     });
 
+    // Who can open /admin (comma-separated emails). Created empty; set the value in the Secrets Manager console.
+    const adminEmails = new secretsmanager.Secret(this, "AdminEmails", {
+      secretName: "fasla/admin-emails",
+      description: "Comma-separated emails allowed to see Fasla's /admin numbers",
+      secretStringValue: cdk.SecretValue.unsafePlainText("-"),
+    });
+
     // Alerts (AI budget 80% / 100%). Subscribe an email to this topic in the SNS console.
     const alerts = new sns.Topic(this, "Alerts", { topicName: "fasla-alerts", displayName: "Fasla alerts" });
 
@@ -121,7 +129,11 @@ export class AppStack extends Stack {
         containerPort: 8000,
         logDriver: ecs.LogDrivers.awsLogs({ streamPrefix: "web", logGroup }),
         environment: { ...appEnv, PLAN_WORKERS: "1", AI_URL: "http://127.0.0.1:3001" },
-        secrets: { ...appSecrets, AI_INTERNAL_KEY: ecs.Secret.fromSecretsManager(aiKey) },
+        secrets: {
+          ...appSecrets,
+          AI_INTERNAL_KEY: ecs.Secret.fromSecretsManager(aiKey),
+          ADMIN_EMAILS: ecs.Secret.fromSecretsManager(adminEmails),
+        },
       },
     });
 

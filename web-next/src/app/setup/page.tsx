@@ -7,6 +7,7 @@ import { ErrorBox, Loading, TopBar, useSession } from "@/components/shell";
 import { api, apiJson, postJson } from "@/lib/api";
 import { fmt, short } from "@/lib/format";
 import type { Brand, Checks, Settings } from "@/lib/types";
+import { track } from "@/lib/track";
 
 export default function SetupPage() {
   return (
@@ -76,6 +77,7 @@ function Setup({ brandId, email }: { brandId: string; email: string }) {
 
   useEffect(() => {
     head.current?.focus();
+    track("setup_step", { step: step + 1 });
   }, [step]);
 
   if (err) return <ErrorBox message={err} />;
@@ -165,6 +167,7 @@ function StepOrders({ brandId, headRef, onDone }: { brandId: string; headRef: He
   async function useExample() {
     setErrors([]);
     setBusy("Loading the example brand…");
+    track("example_used");
     try {
       const r = await fetch("/api/templates/example");
       if (!r.ok) throw new Error("Couldn't load the example data.");
@@ -336,6 +339,12 @@ function StepStyles({
         ))}
       </dl>
 
+      {(s.personal_removed?.length ?? 0) > 0 && (
+        <p className="note ok small" style={{ margin: 0 }}>
+          <b>Your customers&apos; details were not saved.</b> We removed {s.personal_removed!.slice(0, 5).join(", ")}
+          {(s.personal_removed?.length ?? 0) > 5 ? " and more" : ""} before storing your file. Fasla only keeps what it needs to plan.
+        </p>
+      )}
       {s.ai_mapped && (
         <p className="note info small" style={{ margin: 0 }}>
           <b>Fasla&apos;s AI read your file.</b> Your column names or statuses weren&apos;t standard, so the AI matched them. Open

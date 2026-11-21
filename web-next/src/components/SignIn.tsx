@@ -4,8 +4,10 @@ import { getConfig, sendReset, signIn, signInWithGoogle, signUp } from "@/lib/se
 
 type Mode = "in" | "up" | "reset";
 
-export default function SignIn() {
-  const [mode, setMode] = useState<Mode>("in");
+export type { Mode };
+
+export default function SignIn({ initialMode = "in", after = "" }: { initialMode?: Mode; after?: string }) {
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,10 +33,10 @@ export default function SignIn() {
       } else if (mode === "up") {
         const note = await signUp(email.trim(), pw);
         if (note) setMsg(note);
-        else location.reload();
+        else location.assign(after || location.href);
       } else {
         await signIn(email.trim(), pw);
-        location.reload();
+        location.assign(after || location.href);
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't sign in.");
@@ -95,6 +97,11 @@ export default function SignIn() {
           {msg && (
             <p className="note ok" role="status" style={{ margin: 0 }}>
               {msg}
+            </p>
+          )}
+          {mode === "up" && (
+            <p className="tiny muted" style={{ margin: 0 }}>
+              By creating an account you agree to the <a href="/terms/">Terms</a> and <a href="/privacy/">Privacy policy</a>.
             </p>
           )}
           <button type="submit" className="btn primary" disabled={busy}>

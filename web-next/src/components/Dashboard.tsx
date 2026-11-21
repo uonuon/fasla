@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import AskFasla from "./AskFasla";
 import CashChart from "./CashChart";
 import Replan from "./Replan";
+import { track } from "@/lib/track";
 import { cap, fmt, pct, short } from "@/lib/format";
 import type { Plan, PlanView, Variant } from "@/lib/types";
 
@@ -107,7 +108,7 @@ export default function Dashboard({ plan, view, onDownload, onReplan }: { plan: 
           </p>
           <div className="seg" role="group" aria-labelledby="budget-label">
             {view.variants.map((x, i) => (
-              <button key={x.mult} type="button" aria-pressed={i === bi} onClick={() => setBi(i)}>
+              <button key={x.mult} type="button" aria-pressed={i === bi} onClick={() => { setBi(i); track("budget_change", { pct: Math.round(x.mult * 100) }); }}>
                 <b>
                   {Math.round(x.mult * 100)}%{i === rec ? " ★" : ""}
                 </b>
@@ -201,7 +202,7 @@ export default function Dashboard({ plan, view, onDownload, onReplan }: { plan: 
                 </tr>
               </thead>
               <tbody>
-                <StyleRows rows={rows} meta={meta} sel={sel} onSel={setSel} />
+                <StyleRows rows={rows} meta={meta} sel={sel} onSel={(id) => { setSel(id); track("style_open"); }} />
               </tbody>
             </table>
           </div>
@@ -240,7 +241,7 @@ export default function Dashboard({ plan, view, onDownload, onReplan }: { plan: 
         <Replan plan={plan} onStarted={onReplan} />
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span className="small muted">Every number, size by size:</span>
-          <button type="button" className="btn" onClick={onDownload}>
+          <button type="button" className="btn" onClick={() => { track("report_download"); onDownload(); }}>
             Download Excel report
           </button>
         </div>
