@@ -41,7 +41,7 @@ export class AppStack extends Stack {
 
     const logGroup = new logs.LogGroup(this, "Logs", {
       retention: logs.RetentionDays.TWO_WEEKS,
-      removalPolicy: RemovalPolicy.DESTROY,
+      removalPolicy: RemovalPolicy.RETAIN, // keep logs even if a deploy rolls back
     });
 
     const secret = (key: string) => ecs.Secret.fromSecretsManager(props.appSecret, key);

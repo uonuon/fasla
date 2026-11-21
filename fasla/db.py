@@ -59,6 +59,9 @@ def make_engine(url: str):
     if url.startswith("postgresql://"):
         url = "postgresql+psycopg://" + url[len("postgresql://"):]
     kw = {"pool_pre_ping": True}
+    if url.startswith("postgresql"):
+        # fail fast (instead of hanging past the load balancer's health check) when the database is unreachable
+        kw["connect_args"] = {"connect_timeout": 10}
     if url.startswith("sqlite"):
         kw["connect_args"] = {"check_same_thread": False}
     eng = create_engine(url, **kw)

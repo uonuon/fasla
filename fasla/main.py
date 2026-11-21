@@ -44,6 +44,13 @@ async def security_headers(request: Request, call_next):
 
 def _recover():
     # jobs that were running when the server stopped can't finish: mark them so the user can retry
+    try:
+        with engine.connect() as c:
+            c.execute(select(1))
+    except Exception as e:  # say clearly why the app can't start instead of a bare stack trace
+        log.error("Cannot reach the database (%s). Check DATABASE_URL: host, port 5432, user and password.",
+                  type(e).__name__ + ": " + str(e).splitlines()[0][:300])
+        raise
     with engine.begin() as c:
         c.execute(update(plans).where(plans.c.status.in_(["queued", "running"]))
                   .values(status="failed", error="The server restarted during planning. Please run it again.",
