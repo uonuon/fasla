@@ -150,7 +150,7 @@ jobs:
           echo "App: $URL" >> "$GITHUB_STEP_SUMMARY"
           for i in $(seq 1 20); do
             if curl -fsS "$URL/healthz" | tee /tmp/health.json | grep -q '"ok":true' \
-               && curl -fsS "$URL/" | grep -q 'plan your next season' \
+               && curl -fsS "$URL/" | grep -q 'what to produce next season' \
                && curl -fsS "$URL/api/config" | grep -q '"authMode"'; then
               cat /tmp/health.json; exit 0
             fi
