@@ -4,3 +4,6 @@ data/*
 tests
 **/__pycache__
 *.zip
+
+infra
+.github

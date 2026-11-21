@@ -57,3 +57,52 @@ jobs:
           tags: fasla:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to AWS (eu-north-1)
+    needs: [test, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      id-token: write   # lets GitHub hand AWS a short-lived OIDC token; no AWS keys are stored in GitHub
+      contents: read
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: infra/package-lock.json
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::149320913851:role/fasla-github-deploy
+          aws-region: eu-north-1
+
+      - run: npm ci
+
+      - name: Type-check the infrastructure code
+        run: npx tsc
+
+      - name: Deploy (builds the Docker image, pushes it to ECR, updates ECS)
+        run: npx cdk deploy FaslaApp --require-approval never --outputs-file cdk-outputs.json
+
+      - name: Smoke test
+        run: |
+          URL=$(node -e "console.log(require('./cdk-outputs.json').FaslaApp.AppUrl)")
+          echo "App: $URL" >> "$GITHUB_STEP_SUMMARY"
+          for i in $(seq 1 20); do
+            if curl -fsS "$URL/healthz" | tee /tmp/health.json | grep -q '"ok":true'; then
+              cat /tmp/health.json; exit 0
+            fi
+            sleep 15
+          done
+          echo "Health check failed"; exit 1

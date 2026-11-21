@@ -25,7 +25,8 @@ _load_dotenv()
 
 
 def _env(name: str, default: str = "") -> str:
-    return os.environ.get(name, default).strip()
+    # An empty value counts as unset, so a placeholder secret ("") falls back to the default.
+    return (os.environ.get(name) or "").strip() or default
 
 
 @dataclass(frozen=True)
