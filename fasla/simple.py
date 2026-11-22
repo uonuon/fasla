@@ -410,3 +410,105 @@ def personal_columns(table: pd.DataFrame, used: dict | None = None) -> list[str]
     keep = set((used or {}).values())
     return [str(c) for c in table.columns
             if _norm(c) not in keep and any(h in _norm(c) for h in PERSONAL_HINTS)]
+
+
+_EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[a-z]{2,}", re.I)
+_PHONE = re.compile(r"\+?[\d\s\-()]{10,20}")
+
+
+def _is_phone(s: str) -> bool:
+    s = s.strip().translate(AR_DIGITS)
+    if s.endswith(".0"):
+        s = s[:-2]
+    return bool(_PHONE.fullmatch(s)) and 10 <= len(re.sub(r"\D", "", s)) <= 13
+
+
+def _safe_value(v) -> str:
+    s = str(v).strip().translate(AR_DIGITS)[:40]
+    if _EMAIL.search(s):
+        return "<email>"
+    if _is_phone(s):
+        return "<phone>"
+    return s
+
+
+def _namey(c) -> bool:
+    """A 'name' column that isn't about the product is probably a person's name."""
+    n = _norm(c)
+    return (("name" in n or "اسم" in n or "عميل" in n) and n != "name"
+            and not any(w in n for w in ("product", "item", "style", "variant", "sku", "lineitem", "province", "city", "zone", "courier",
+                                     "منتج", "صنف", "موديل")))
+
+
+def file_shape(data: bytes, max_cols: int = 60) -> dict:
+    """What a file looks like, for fixing the reader when it fails: sheet names, headers, header row,
+    row count, and a few example values per column. Never includes customer details: columns that look
+    personal show their header only, and any email or phone-like value is masked. Never raises."""
+    out: dict = {"bytes": len(data), "kind": "xlsx" if data[:4] == b"PK\x03\x04" else "csv"}
+    try:
+        if out["kind"] == "xlsx":
+            sheets = pd.read_excel(io.BytesIO(data), sheet_name=None, engine="openpyxl", nrows=200)
+            out["sheets"] = {str(k): int(len(v)) for k, v in list(sheets.items())[:10]}
+            raw = max(sheets.values(), key=len) if sheets else pd.DataFrame()
+        else:
+            head = data[:4096]
+            out["encoding"] = "utf-8-sig" if head.startswith(b"\xef\xbb\xbf") else "utf-8"
+            out["delimiter"] = max(",;\t|", key=lambda d: head.count(d.encode()))
+            raw, _ = read_table(data)
+            raw = raw.head(200)
+        out["raw_headers"] = [str(c)[:60] for c in raw.columns[:max_cols]]
+        body = find_header(raw)
+        out["header_row_found"] = body is not raw
+        out["rows_sampled"] = int(len(body))
+        personal = set(personal_columns(body)) | {str(c) for c in body.columns if _namey(c)}
+        cols = []
+        for c in list(body.columns)[:max_cols]:
+            col = body[c]
+            ent = {"name": str(c)[:60], "norm": _norm(c)[:60], "filled": round(float(col.notna().mean()), 2) if len(col) else 0}
+            if str(c) in personal:
+                ent["personal"] = True
+            else:
+                vals = [x for x in col.dropna().astype(str).unique()[:4] if x.strip() not in ("", "nan")]
+                ent["examples"] = [_safe_value(x) for x in vals[:3]]
+            cols.append(ent)
+        out["columns"] = cols
+    except Exception as e:  # noqa: BLE001
+        out["shape_error"] = f"{type(e).__name__}: {str(e)[:120]}"
+    return out
+
+
+def _personal_header(v) -> bool:
+    n = _norm(v)
+    return bool(n) and (any(h in n for h in PERSONAL_HINTS) or _namey(v))
+
+
+def scrub_file(data: bytes) -> tuple[bytes, str]:
+    """A copy of an uploaded file that an owner chose to share so we can fix the reader: same layout
+    (title rows, sheets, headers), but columns under a personal header are blanked and any email- or
+    phone-like value anywhere is masked. Returns (bytes, ext)."""
+    is_xlsx = data[:4] == b"PK\x03\x04"
+    if is_xlsx:
+        sheets = pd.read_excel(io.BytesIO(data), sheet_name=None, header=None, engine="openpyxl", dtype=object)
+    else:
+        t, _ = read_table(data)
+        sheets = {"data": pd.concat([pd.DataFrame([list(t.columns)]), pd.DataFrame(t.values)], ignore_index=True)}
+    out = {}
+    for name, df in sheets.items():
+        df = df.copy()
+        for j in df.columns:
+            col = df[j]
+            hdr = next((i for i, v in enumerate(col.head(15)) if isinstance(v, str) and _personal_header(v)), None)
+            if hdr is not None:
+                df.loc[df.index > hdr, j] = "<removed>"
+            df[j] = [v if (v is None or (isinstance(v, float) and np.isnan(v))) else
+                     (_safe_value(v) if _EMAIL.search(str(v)) or _is_phone(str(v)) else v)
+                     for v in df[j]]
+        out[str(name)[:31]] = df
+    buf = io.BytesIO()
+    if is_xlsx:
+        with pd.ExcelWriter(buf, engine="openpyxl") as w:
+            for n, df in out.items():
+                df.to_excel(w, sheet_name=n, header=False, index=False)
+        return buf.getvalue(), "xlsx"
+    df = next(iter(out.values()))
+    return df.to_csv(index=False, header=False).encode("utf-8"), "csv"

@@ -20,6 +20,7 @@ export default function Privacy() {
           <li>We use your sales data only to make your plans, and never sell it or show it to other brands.</li>
           <li>We don&apos;t keep your customers&apos; personal details. Names, phone numbers, emails and addresses are removed from your file before it is stored.</li>
           <li>You can delete a plan or a whole brand at any time, and its files are deleted with it.</li>
+          <li>If Fasla can&apos;t read a file, we note its column names and a few example values (never customer details) so we can fix it. We keep the file itself only if you press &quot;Send this file to Fasla&quot;, with customer details removed, and delete it after 30 days.</li>
           <li>We only use your data to improve Fasla if you say yes, and only anonymised and combined with other brands.</li>
         </ul>
 

@@ -81,3 +81,49 @@ def test_consent_events_and_admin_metrics(client):
     assert funnel["signup"] == 1 and funnel["brand_created"] == 1 and funnel["page_view"] == 1
     assert "made_up" not in m["event_totals"]
     assert m["improve_data_opt_in"] == {"true": 1}
+
+
+def test_failed_uploads_are_logged_without_customer_details(client):
+    c, tmp = client
+    h = _signup(c, "fail@x.com")
+    bid = c.post("/api/brands", json={"name": "B"}, headers=h).json()["id"]
+    bad = ("Customer Name,Mobile,Thing,When\n" + "".join(
+        f"Ahmed {i},0101234{i:04d},Hoodie-{i % 3},someday\n" for i in range(30))).encode()
+    r = c.post(f"/api/brands/{bid}/uploads", headers=h, files={"file": ("weird.csv", bad, "text/csv")})
+    assert r.status_code == 422
+    rid = r.json()["report_id"]
+    a = _signup(c, "boss@x.com")
+    assert c.get("/api/admin/uploads", headers=h).status_code == 404       # owners can't see the log
+    logs = c.get("/api/admin/uploads", headers=a).json()
+    f = next(x for x in logs if x["report_id"] == rid)
+    assert f["type"] == "upload_failed" and f["ext"] == "csv" and f["error"] and f["shared"] is False
+    cols = {x["name"]: x for x in f["shape"]["columns"]}
+    assert cols["Customer Name"].get("personal") and cols["Mobile"].get("personal")
+    assert cols["Thing"]["examples"][0].startswith("Hoodie")
+    assert "Ahmed" not in str(logs) and "0101234" not in str(logs)
+    # the owner chooses to share the file: a scrubbed copy is kept for the admin
+    other = _signup(c, "other@x.com")
+    assert c.post(f"/api/upload-reports/{rid}", headers=other, files={"file": ("weird.csv", bad)}).status_code == 404
+    assert c.post(f"/api/upload-reports/{rid}", headers=h, files={"file": ("weird.csv", bad)}).status_code == 201
+    assert next(x for x in c.get("/api/admin/uploads", headers=a).json() if x["report_id"] == rid)["shared"] is True
+    assert c.get(f"/api/admin/upload-reports/{rid}", headers=h).status_code == 404
+    got = c.get(f"/api/admin/upload-reports/{rid}", headers=a)
+    assert got.status_code == 200
+    text = got.content.decode()
+    assert "Hoodie-1" in text and "Ahmed" not in text and "0101234" not in text
+
+
+def test_reader_crash_is_logged_and_explained(client, monkeypatch):
+    c, _ = client
+    import fasla.main as main
+    def boom(*a, **k):
+        raise KeyError("lineitem_name")
+    monkeypatch.setattr(main, "_smart_parse", boom)
+    h = _signup(c, "crash@x.com")
+    bid = c.post("/api/brands", json={"name": "B"}, headers=h).json()["id"]
+    r = c.post(f"/api/brands/{bid}/uploads", headers=h, files={"file": ("orders_export.csv", CSV, "text/csv")})
+    assert r.status_code == 422 and "our side" in r.json()["errors"][0]
+    a = _signup(c, "boss@x.com")
+    f = c.get("/api/admin/uploads", headers=a).json()[0]
+    assert f["type"] == "upload_crashed" and "KeyError" in f["error"] and "main.py" in f["where"]
+    assert "buyer1@mail.com" not in str(f)

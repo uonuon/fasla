@@ -139,11 +139,26 @@ type HeadRef = React.RefObject<HTMLHeadingElement | null>;
 function StepOrders({ brandId, headRef, onDone }: { brandId: string; headRef: HeadRef; onDone: (u: Uploaded) => void }) {
   const [busy, setBusy] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
+  const [report, setReport] = useState<{ id: string; file: File; sent: "" | "sending" | "sent" | "failed" } | null>(null);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
+  async function shareFile() {
+    if (!report) return;
+    setReport({ ...report, sent: "sending" });
+    try {
+      const fd = new FormData();
+      fd.append("file", report.file);
+      const r = await api(`/api/upload-reports/${report.id}`, { method: "POST", body: fd });
+      setReport({ ...report, sent: r.ok ? "sent" : "failed" });
+    } catch {
+      setReport({ ...report, sent: "failed" });
+    }
+  }
+
   async function send(file: File) {
     setErrors([]);
+    setReport(null);
     if (!/\.(xlsx|csv)$/i.test(file.name)) {
       setErrors(["Please choose an Excel (.xlsx) or CSV file."]);
       return;
@@ -154,7 +169,10 @@ function StepOrders({ brandId, headRef, onDone }: { brandId: string; headRef: He
       fd.append("file", file);
       const r = await api(`/api/brands/${brandId}/uploads`, { method: "POST", body: fd });
       const j = await r.json().catch(() => null);
-      if (r.status === 422 && j?.errors) setErrors(j.errors);
+      if (r.status === 422 && j?.errors) {
+        setErrors(j.errors);
+        if (j.report_id && !file.name.startsWith("fasla_example")) setReport({ id: j.report_id, file, sent: "" });
+      }
       else if (!r.ok) setErrors([typeof j?.detail === "string" ? j.detail : "We couldn't read this file. Please try again."]);
       else onDone({ plan_id: j.plan_id, settings: j.settings, checks: j.checks, file: file.name });
     } catch (e) {
@@ -278,6 +296,24 @@ function StepOrders({ brandId, headRef, onDone }: { brandId: string; headRef: He
               <li key={i}>{e}</li>
             ))}
           </ul>
+          {report && (
+            <div style={{ marginTop: 10 }}>
+              {report.sent === "sent" ? (
+                <p className="small">Thanks. We got the file and will make Fasla read it. We&apos;ll email you when it does.</p>
+              ) : (
+                <>
+                  <p className="small">
+                    Is this your normal export? Send it to us and we&apos;ll teach Fasla to read it. We remove customer names,
+                    phones, emails and addresses first, use it only to fix this, and delete it after 30 days.
+                  </p>
+                  <button className="btn" onClick={shareFile} disabled={report.sent === "sending"}>
+                    {report.sent === "sending" ? "Sending…" : "Send this file to Fasla"}
+                  </button>
+                  {report.sent === "failed" && <p className="small">Couldn&apos;t send it. Please try again.</p>}
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
     </section>

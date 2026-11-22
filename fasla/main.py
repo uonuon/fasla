@@ -26,7 +26,7 @@ from . import ai
 from .ai_context import plan_context
 from .queue import make_queue
 from .planner import WorkbookError, clean_settings, read_orders_table, read_workbook, run_plan_on, template_bytes
-from .simple import ai_sample, minimal_csv, personal_columns, unknown_statuses
+from .simple import ai_sample, file_shape, minimal_csv, personal_columns, scrub_file, unknown_statuses
 from .storage import StorageError, make_storage
 
 log = logging.getLogger("fasla")
@@ -291,8 +291,15 @@ async def upload(bid: uuid.UUID, file: UploadFile = File(...), user: User = Depe
     try:
         parsed, mapping = _smart_parse(data, str(user.id))
     except WorkbookError as e:
-        track("upload_failed", user.id, kind=ext, error=" | ".join(e.errors)[:300])
-        return JSONResponse({"ok": False, "errors": e.errors}, status_code=422)
+        rid = _upload_log("upload_failed", user.id, data, file.filename, errors=e.errors)
+        return JSONResponse({"ok": False, "errors": e.errors, "report_id": rid}, status_code=422)
+    except Exception as e:  # noqa: BLE001  a bug in our reader: record it, tell the owner kindly
+        log.exception("upload crashed")
+        msg = "Something went wrong on our side while reading this file. We've logged it and will fix it."
+        rid = _upload_log("upload_crashed", user.id, data, file.filename, errors=[f"{type(e).__name__}: {str(e)[:200]}"],
+                          where=_where(e))
+        return JSONResponse({"ok": False, "errors": [msg], "report_id": rid}, status_code=422)
+    data_in = data
     if mapping:
         parsed["settings"] = {**parsed["settings"], "_mapping": mapping}
     # Privacy: for orders files keep only the columns Fasla reads; customer details never get stored.
@@ -318,6 +325,11 @@ async def upload(bid: uuid.UUID, file: UploadFile = File(...), user: User = Depe
     except StorageError as e:
         raise HTTPException(502, f"Couldn't save the file: {e}")
     st_ = parsed["checks"]["stats"]
+    warns = parsed["checks"].get("warnings") or []
+    if (mapping or warns) and not (file.filename or "").startswith("fasla_example"):
+        # it worked, but only with AI help or with warnings: keep the file's shape so the rules can learn it
+        _upload_log("upload_hard", user.id, data_in, file.filename, errors=warns[:10], mapping=mapping,
+                    mode=st_.get("mode"), orders=st_.get("orders"))
     track("upload_ok", user.id, mode=st_.get("mode"), orders=st_.get("orders"), styles=st_.get("styles"),
           seasons=len(st_.get("seasons") or []), ai_mapped=bool(st_.get("ai_mapped")),
           example=(file.filename or "").startswith("fasla_example"))
@@ -326,6 +338,54 @@ async def upload(bid: uuid.UUID, file: UploadFile = File(...), user: User = Depe
                                          input_name=file.filename[:200], input_path=path,
                                          settings=parsed["settings"], checks=parsed["checks"]))
     return {"ok": True, "plan_id": str(pid), "settings": parsed["settings"], "checks": parsed["checks"]}
+
+
+UPLOAD_LOGS = ("upload_failed", "upload_crashed", "upload_hard")
+
+
+def _report_event(con, rid: str, user_id=None):
+    q = select(events).where(events.c.name.in_(UPLOAD_LOGS)).order_by(events.c.created_at.desc()).limit(2000)
+    if user_id is not None:
+        q = q.where(events.c.user_id == user_id)
+    return next((r for r in con.execute(q).mappings() if (r["props"] or {}).get("report_id") == rid), None)
+
+
+def _purge_shared_reports() -> None:
+    """Shared files are kept 30 days. Runs opportunistically (on share and on the admin view); never raises."""
+    try:
+        now = datetime.now(timezone.utc)
+        with engine.connect() as con:
+            rows = con.execute(select(events.c.props).where(and_(
+                events.c.name == "upload_shared", events.c.created_at < now - timedelta(days=30),
+                events.c.created_at >= now - timedelta(days=60)))).all()
+        paths = [f"_reports/{(r.props or {}).get('report_id')}.{(r.props or {}).get('ext')}" for r in rows]
+        if paths:
+            storage.delete(paths)
+    except Exception:  # noqa: BLE001
+        log.warning("could not purge shared reports", exc_info=True)
+
+
+@app.post("/api/upload-reports/{rid}", status_code=201)
+async def share_failed_upload(rid: str, file: UploadFile = File(...), user: User = Depends(current_user)):
+    """The owner chose to send us a file we couldn't read. We keep a scrubbed copy (customer details
+    removed) only to fix the reader, and delete it after 30 days."""
+    with engine.connect() as con:
+        if not _report_event(con, rid[:12], user.id):
+            raise HTTPException(404, "Not found")
+    data = await file.read(S.max_upload_mb * 1024 * 1024 + 1)
+    if len(data) > S.max_upload_mb * 1024 * 1024:
+        raise HTTPException(413, f"The file is larger than {S.max_upload_mb} MB.")
+    try:
+        clean, ext = scrub_file(data)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(422, "We couldn't open this file to remove customer details, so we didn't keep it.")
+    try:
+        storage.put(f"_reports/{rid[:12]}.{ext}", clean, XLSX)
+    except StorageError as e:
+        raise HTTPException(502, f"Couldn't save the file: {e}")
+    track("upload_shared", user.id, report_id=rid[:12], ext=ext, contact=(user.email or "")[:320])
+    _purge_shared_reports()
+    return {"ok": True}
 
 
 AI_FIELDS = ["date", "style", "size", "color", "qty", "price", "zone", "status", "courier", "cost", "category"]
@@ -371,10 +431,28 @@ def _smart_parse(data: bytes, user_id: str) -> tuple[dict, dict]:
     return parsed, mapping
 
 
+def _where(e: Exception) -> str:
+    """file:line of the innermost frame in our own code, so a crash points at the line to fix."""
+    import traceback
+    frames = [f for f in traceback.extract_tb(e.__traceback__) if "/fasla/" in f.filename or "/brandopt/" in f.filename]
+    f = frames[-1] if frames else None
+    return f"{f.filename.rsplit('/', 1)[-1]}:{f.lineno} {f.name}" if f else ""
+
+
+def _upload_log(name: str, user_id, data: bytes, filename: str | None, **props) -> str:
+    """Record a hard or failed upload with the file's shape (headers, example values, never customer details).
+    Returns an id the owner can use to share the actual file with us."""
+    rid = uuid.uuid4().hex[:12]
+    fn = (filename or "").lower()
+    track(name, user_id, report_id=rid, ext=fn.rsplit(".", 1)[-1][:5] if "." in fn else "",
+          error=" | ".join(props.pop("errors", []) or [])[:600], shape=file_shape(data), **props)
+    return rid
+
+
 # ---------------- usage tracking (first-party, no third parties) ----------------
 EVENT_NAMES = {
     # server-side
-    "signup", "brand_created", "upload_ok", "upload_failed", "plan_started", "plan_done", "plan_failed", "replan",
+    "signup", "brand_created", "upload_ok", "upload_failed", "upload_crashed", "upload_hard", "upload_shared", "plan_started", "plan_done", "plan_failed", "replan",
     "ai_explain", "ai_ask", "consent",
     # sent by the browser
     "page_view", "budget_change", "style_open", "report_download", "replan_open", "example_used", "setup_step",
@@ -460,6 +538,37 @@ def admin_metrics(days: int = 14, user: User = Depends(current_user)):
     return {"days": days, "funnel_users": funnel, "event_totals": totals,
             "daily": dict(sorted(daily.items(), reverse=True)), "recent_failures": failures,
             "improve_data_opt_in": {str(bool(k)).lower(): n for k, n in consent_rows}}
+
+
+@app.get("/api/admin/uploads")
+def admin_uploads(days: int = 30, user: User = Depends(current_user)):
+    """Uploads that failed, crashed or needed AI/warnings, with the file's shape, newest first."""
+    if not _is_admin(user):
+        raise HTTPException(404, "Not found")
+    since = datetime.now(timezone.utc) - timedelta(days=max(1, min(days, 180)))
+    with engine.connect() as con:
+        rows = con.execute(select(events.c.name, events.c.created_at, events.c.props)
+                           .where(and_(events.c.created_at >= since, events.c.name.in_(UPLOAD_LOGS + ("upload_shared",))))
+                           .order_by(events.c.created_at.desc()).limit(300)).all()
+    _purge_shared_reports()
+    shared = {(r.props or {}).get("report_id"): (r.props or {}).get("contact", "") for r in rows if r.name == "upload_shared"}
+    return [dict(type=r.name, at=r.created_at.isoformat(), shared=(r.props or {}).get("report_id") in shared,
+                 contact=shared.get((r.props or {}).get("report_id"), ""), **(r.props or {}))
+            for r in rows if r.name != "upload_shared"]
+
+
+@app.get("/api/admin/upload-reports/{rid}")
+def admin_upload_file(rid: str, user: User = Depends(current_user)):
+    if not _is_admin(user):
+        raise HTTPException(404, "Not found")
+    rid = re.sub(r"[^0-9a-f]", "", rid)[:12]
+    for ext, ctype in (("xlsx", XLSX), ("csv", "text/csv")):
+        try:
+            data = storage.get(f"_reports/{rid}.{ext}")
+        except StorageError:
+            continue
+        return Response(data, media_type=ctype, headers={"Content-Disposition": f'attachment; filename="report_{rid}.{ext}"'})
+    raise HTTPException(404, "Not shared")
 
 
 def _ai_error(e: ai.AIError) -> JSONResponse:

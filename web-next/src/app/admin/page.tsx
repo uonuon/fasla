@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import SignIn from "@/components/SignIn";
 import { ErrorBox, Loading, TopBar, useSession } from "@/components/shell";
-import { apiJson } from "@/lib/api";
+import { apiJson, download } from "@/lib/api";
 import { fmt } from "@/lib/format";
 
 type Metrics = {
@@ -12,6 +12,35 @@ type Metrics = {
   daily: Record<string, Record<string, number>>;
   recent_failures: { at: string; error?: string; kind?: string; plan?: string }[];
   improve_data_opt_in: Record<string, number>;
+};
+
+type UploadLog = {
+  type: "upload_failed" | "upload_crashed" | "upload_hard";
+  at: string;
+  report_id: string;
+  ext?: string;
+  error?: string;
+  where?: string;
+  shared: boolean;
+  contact?: string;
+  mapping?: Record<string, unknown>;
+  shape?: {
+    bytes?: number;
+    kind?: string;
+    sheets?: Record<string, number>;
+    delimiter?: string;
+    raw_headers?: string[];
+    header_row_found?: boolean;
+    rows_sampled?: number;
+    shape_error?: string;
+    columns?: { name: string; filled: number; personal?: boolean; examples?: string[] }[];
+  };
+};
+
+const UPLOAD_TYPE: Record<UploadLog["type"], string> = {
+  upload_failed: "Couldn't read",
+  upload_crashed: "Crashed (our bug)",
+  upload_hard: "Read with AI or warnings",
 };
 
 const LABELS: Record<string, string> = {
@@ -40,6 +69,13 @@ function Admin({ email }: { email: string }) {
   const [days, setDays] = useState(14);
   const [m, setM] = useState<Metrics | null>(null);
   const [err, setErr] = useState("");
+  const [uploads, setUploads] = useState<UploadLog[]>([]);
+
+  useEffect(() => {
+    apiJson<UploadLog[]>(`/api/admin/uploads?days=${Math.max(days, 30)}`)
+      .then(setUploads)
+      .catch(() => setUploads([]));
+  }, [days]);
 
   useEffect(() => {
     let alive = true;
@@ -127,6 +163,72 @@ function Admin({ email }: { email: string }) {
               </tbody>
             </table>
           </div>
+        </section>
+
+        <section className="card" aria-labelledby="h-uploads">
+          <h2 id="h-uploads" style={{ marginBottom: 4 }}>
+            Files Fasla struggled with
+          </h2>
+          <p className="tiny muted">
+            Headers and example values only; customer columns show their name, never their values. Files appear here
+            to download only if the owner pressed &quot;Send this file&quot;.
+          </p>
+          {uploads.length === 0 ? (
+            <p className="muted small">No problem files.</p>
+          ) : (
+            <div className="stack">
+              {uploads.map((u) => (
+                <details key={u.report_id} className="note">
+                  <summary>
+                    <span className="muted">{u.at.slice(0, 16).replace("T", " ")}</span> <b>{UPLOAD_TYPE[u.type]}</b>{" "}
+                    ({u.ext || u.shape?.kind}) {u.error?.slice(0, 140)}
+                    {u.shared && " · file shared"}
+                  </summary>
+                  <div className="small" style={{ marginTop: 8 }}>
+                    {u.where && <p>Where: <code>{u.where}</code></p>}
+                    {u.shared && (
+                      <p>
+                        <button type="button" className="btn" onClick={() => download(`/api/admin/upload-reports/${u.report_id}`, `report_${u.report_id}.${u.ext || "xlsx"}`)}>
+                          Download the scrubbed file
+                        </button>
+                        {u.contact ? ` · owner: ${u.contact}` : ""}
+                      </p>
+                    )}
+                    <p className="muted">
+                      {u.shape?.sheets ? `Sheets: ${Object.entries(u.shape.sheets).map(([k, n]) => `${k} (${n})`).join(", ")} · ` : ""}
+                      {u.shape?.delimiter ? `Delimiter "${u.shape.delimiter}" · ` : ""}
+                      {u.shape?.header_row_found ? "Headers found below title rows · " : ""}
+                      {u.shape?.rows_sampled ?? 0} rows looked at
+                      {u.shape?.shape_error ? ` · ${u.shape.shape_error}` : ""}
+                    </p>
+                    {u.mapping && Object.keys(u.mapping).length > 0 && (
+                      <p>AI mapping: <code>{JSON.stringify(u.mapping)}</code></p>
+                    )}
+                    <div className="tbl-wrap">
+                      <table className="tbl">
+                        <thead>
+                          <tr>
+                            <th scope="col">Column</th>
+                            <th scope="col" className="r">Filled</th>
+                            <th scope="col">Examples</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(u.shape?.columns ?? []).map((c, i) => (
+                            <tr key={i}>
+                              <td>{c.name}</td>
+                              <td className="r num">{Math.round(c.filled * 100)}%</td>
+                              <td>{c.personal ? <span className="muted">customer data, hidden</span> : (c.examples ?? []).join(" · ")}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </details>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="card" aria-labelledby="h-fail">
