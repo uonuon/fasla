@@ -228,3 +228,27 @@ def wait_done(c, pid, h, limit=400):
         if p["status"] in ("done", "failed") or time.time() - t0 > limit:
             return p
         time.sleep(1)
+
+
+def test_batch_plan_flow(client):
+    for kind in ("empty", "example"):
+        r = client.get(f"/api/batch/templates/{kind}")
+        assert r.status_code == 200 and r.content[:2] == b"PK"
+    example = client.get("/api/batch/templates/example").content
+    files = {"file": ("fasla_batch_example.xlsx", io.BytesIO(example), "application/octet-stream")}
+    assert client.post("/api/batch/plan", files=files).status_code == 401
+    h = signup(client, "batch@x.com")
+    r = client.post("/api/batch/plan", headers=h,
+                    files={"file": ("fasla_batch_example.xlsx", io.BytesIO(example), "application/octet-stream")})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["total_cost"] > 0 and len(body["plan"]) == 8 and body["materials"]
+    assert sum(p["make"] for p in body["plan"]) > 0
+    r = client.post("/api/batch/report", headers=h,
+                    files={"file": ("x.xlsx", io.BytesIO(example), "application/octet-stream")})
+    assert r.status_code == 200 and r.content[:2] == b"PK"
+    empty = client.get("/api/batch/templates/empty").content
+    r = client.post("/api/batch/plan", headers=h, files={"file": ("e.xlsx", io.BytesIO(empty), "application/octet-stream")})
+    assert r.status_code == 422 and "detail" in r.json()
+    r = client.post("/api/batch/plan", headers=h, files={"file": ("e.csv", io.BytesIO(b"a,b"), "text/csv")})
+    assert r.status_code == 400

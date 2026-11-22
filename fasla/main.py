@@ -184,6 +184,82 @@ def get_template(kind: str):
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
+# ---------------- batch products (food in jars, oils, creams): plan the next batch ----------------
+# The file is read in memory and never stored; only the plan goes back to the browser.
+@lru_cache(maxsize=2)
+def _batch_template(example: bool) -> bytes:
+    import io
+    import tempfile
+
+    from brandopt.batch_excel import write_template
+    with tempfile.NamedTemporaryFile(suffix=".xlsx") as f:
+        write_template(f.name, example=example)
+        return io.open(f.name, "rb").read()
+
+
+@app.get("/api/batch/templates/{kind}")
+def get_batch_template(kind: str):
+    if kind not in ("empty", "example"):
+        raise HTTPException(404, "Unknown template")
+    name = "fasla_batch_template.xlsx" if kind == "empty" else "fasla_batch_example.xlsx"
+    return Response(_batch_template(kind == "example"), media_type=XLSX,
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+async def _batch_run(file: UploadFile, user: User):
+    import io
+
+    from brandopt.batch_excel import read_inputs, run
+    if not (file.filename or "").lower().endswith(".xlsx"):
+        raise HTTPException(400, "Please upload the Fasla batch workbook (.xlsx).")
+    data = await file.read(S.max_upload_mb * 1024 * 1024 + 1)
+    if len(data) > S.max_upload_mb * 1024 * 1024:
+        raise HTTPException(413, f"The file is larger than {S.max_upload_mb} MB.")
+    try:
+        return run(read_inputs(io.BytesIO(data)))
+    except ValueError as e:
+        track("batch_failed", user.id, error=str(e)[:200])
+        raise HTTPException(422, str(e))
+    except Exception as e:  # noqa: BLE001
+        log.exception("batch plan crashed")
+        track("batch_failed", user.id, error=f"{type(e).__name__}: {str(e)[:150]}", where=_where(e))
+        raise HTTPException(422, "Something went wrong on our side while reading this file. We've logged it.")
+
+
+def _records(df):
+    import math as _m
+    out = []
+    for r in df.to_dict("records"):
+        out.append({k: (None if isinstance(v, float) and (_m.isnan(v) or _m.isinf(v)) else
+                        (str(v) if hasattr(v, "isoformat") else v)) for k, v in r.items()})
+    return out
+
+
+@app.post("/api/batch/plan")
+async def batch_plan(file: UploadFile = File(...), user: User = Depends(current_user)):
+    res = await _batch_run(file, user)
+    plan = res["plan"]
+    track("batch_plan", user.id, skus=len(plan), make=int(plan.make.sum()), cost=round(res["total_cost"]),
+          months=res["fc"]["history_months"], example=(file.filename or "").startswith("fasla_batch_example"))
+    return {"start": str(res["start"]), "total_cost": round(res["total_cost"]), "notes": res["notes"],
+            "plan": _records(plan.round(3)), "batches": _records(res["batches"].round(1)),
+            "materials": _records(res["materials"]), "forecast": _records(res["forecast"].round(0)),
+            "history": [{"month": str(m), "units": round(float(v))} for m, v in res["fc"]["history_total"].items()]}
+
+
+@app.post("/api/batch/report")
+async def batch_report(file: UploadFile = File(...), user: User = Depends(current_user)):
+    import tempfile
+
+    from brandopt.batch_excel import write_report
+    res = await _batch_run(file, user)
+    with tempfile.NamedTemporaryFile(suffix=".xlsx") as f:
+        write_report(res, f.name)
+        body = open(f.name, "rb").read()
+    return Response(body, media_type=XLSX,
+                    headers={"Content-Disposition": 'attachment; filename="fasla_batch_plan.xlsx"'})
+
+
 # ---------------- brands ----------------
 class BrandIn(BaseModel):
     name: str = Field(min_length=1, max_length=80)
@@ -453,7 +529,7 @@ def _upload_log(name: str, user_id, data: bytes, filename: str | None, **props) 
 EVENT_NAMES = {
     # server-side
     "signup", "brand_created", "upload_ok", "upload_failed", "upload_crashed", "upload_hard", "upload_shared", "plan_started", "plan_done", "plan_failed", "replan",
-    "ai_explain", "ai_ask", "consent",
+    "ai_explain", "ai_ask", "consent", "batch_plan", "batch_failed",
     # sent by the browser
     "page_view", "budget_change", "style_open", "report_download", "replan_open", "example_used", "setup_step",
 }
