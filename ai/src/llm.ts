@@ -34,16 +34,18 @@ export class AnthropicLlm implements Llm {
   async complete(req: LlmRequest): Promise<LlmResult> {
     const key = this.cfg.anthropicApiKey;
     if (!key || key === "-") throw new LlmError("The AI isn't set up yet.");
+    // Haiku/Sonnet 5.5: no temperature/top_p/top_k (400), no forced tool_choice (400), adaptive thinking on by
+    // default. We ask for low effort (short thinking, lower cost) and tell the model to answer with the tool.
     const body = {
       model: req.model,
       max_tokens: req.maxTokens,
-      temperature: req.temperature ?? 0.2,
-      system: req.system,
+      output_config: { effort: "low" },
+      system: req.tool ? `${req.system}\n\nAnswer only by calling the ${req.tool.name} tool.` : req.system,
       messages: req.messages.map((m) => ({ role: m.role, content: m.text })),
       ...(req.tool
         ? {
             tools: [{ name: req.tool.name, description: req.tool.description, input_schema: req.tool.schema }],
-            tool_choice: { type: "tool", name: req.tool.name },
+            tool_choice: { type: "auto" },
           }
         : {}),
     };
@@ -70,9 +72,13 @@ export class AnthropicLlm implements Llm {
         };
         const content = r.content ?? [];
         const u = r.usage ?? {};
+        const text = content.filter((c) => c.type === "text").map((c) => c.text ?? "").join("").trim();
+        let json = content.find((c) => c.type === "tool_use")?.input;
+        if (req.tool && json === undefined) json = parseJsonLoose(text);
+        if (!req.tool && !text) throw new LlmError("The AI couldn't answer this time. Please try again.", true);
         return {
-          text: content.filter((c) => c.type === "text").map((c) => c.text ?? "").join("").trim(),
-          json: content.find((c) => c.type === "tool_use")?.input,
+          text,
+          json,
           inputTokens: (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0),
           outputTokens: u.output_tokens ?? 0,
           model: req.model,
@@ -97,6 +103,18 @@ export class AnthropicLlm implements Llm {
       lastStatus === 429 || lastStatus === 529 ? "The AI is busy right now. Please try again in a minute." : "The AI couldn't answer this time. Please try again.",
       true,
     );
+  }
+}
+
+/** A model that skipped the tool sometimes writes the JSON in plain text; take the outermost {...}. */
+function parseJsonLoose(text: string): unknown {
+  const a = text.indexOf("{");
+  const b = text.lastIndexOf("}");
+  if (a < 0 || b <= a) return undefined;
+  try {
+    return JSON.parse(text.slice(a, b + 1));
+  } catch {
+    return undefined;
   }
 }
 

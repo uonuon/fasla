@@ -112,7 +112,7 @@ test("ask validates input and alternates turns", async () => {
   const roles = llm.calls.at(-1)!.messages.map((m) => m.role);
   for (let i = 1; i < roles.length; i++) assert.notEqual(roles[i], roles[i - 1]);
   assert.equal(roles[0], "user");
-  assert.equal(llm.calls.at(-1)!.maxTokens, 600);
+  assert.equal(llm.calls.at(-1)!.maxTokens, 2000);
   const big = await s.call("/v1/ask", { userId: "u", planKey: "p", context: { x: "y".repeat(50_000) }, question: "q" });
   assert.equal(big.status, 413);
   await s.app.close();
@@ -175,7 +175,9 @@ test("Anthropic provider sends a tool call and reads tool input and usage", asyn
   assert.equal(r.outputTokens, 40);
   const body = JSON.parse(String(seen[0].init.body));
   assert.equal(body.max_tokens, 300);
-  assert.deepEqual(body.tool_choice, { type: "tool", name: "map_columns" });
+  assert.deepEqual(body.tool_choice, { type: "auto" });
+  assert.equal(body.temperature, undefined); // 5.5 models reject sampling params
+  assert.deepEqual(body.output_config, { effort: "low" });
   assert.equal((seen[0].init.headers as Record<string, string>)["x-api-key"], "sk-test");
 });
 
@@ -197,4 +199,13 @@ test("Anthropic provider retries when overloaded, and explains auth and missing-
     new AnthropicLlm({ ...config(), anthropicApiKey: "-" }, denied.fn).complete({ model: "m", system: "s", maxTokens: 5, messages: [{ role: "user", text: "q" }] }),
     (e: unknown) => e instanceof LlmError && /isn't set up/.test(e.message),
   );
+});
+
+test("Anthropic provider reads JSON from text when the model skips the tool", async () => {
+  const { fn } = fakeFetch([{ status: 200, body: { content: [{ type: "text", text: 'Here: {"date": "d"}' }], usage: { input_tokens: 1, output_tokens: 1 } } }]);
+  const r = await new AnthropicLlm({ ...config(), anthropicApiKey: "sk-test" }, fn).complete({
+    model: "claude-haiku-5-5", system: "s", maxTokens: 300, messages: [{ role: "user", text: "hi" }],
+    tool: { name: "map_columns", description: "d", schema: { type: "object" } },
+  });
+  assert.deepEqual(r.json, { date: "d" });
 });

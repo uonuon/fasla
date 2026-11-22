@@ -133,8 +133,7 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
       model: this.cfg.fastModel,
       system: P.MAP_SYSTEM,
       messages: [{ role: "user", text: P.mapPrompt(headers, (original ?? []).map(String), (sample ?? []).slice(0, 8), fields) }],
-      maxTokens: 600,
-      temperature: 0,
+      maxTokens: 2000,
       tool: { name: "map_columns", description: "Report which header holds each field", schema: P.mapSchema(fields, headers) },
     };
     const { res, usage } = await this.call(userId, "map", req);
@@ -159,8 +158,7 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
       model: this.cfg.fastModel,
       system: P.STATUS_SYSTEM,
       messages: [{ role: "user", text: P.statusPrompt(values) }],
-      maxTokens: 1200,
-      temperature: 0,
+      maxTokens: 2500,
       tool: { name: "map_statuses", description: "Classify each status value", schema: P.statusSchema(values) },
     };
     const { res, usage } = await this.call(userId, "map", req);
@@ -182,8 +180,7 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
       model: this.cfg.smartModel,
       system: P.EXPLAIN_SYSTEM,
       messages: [{ role: "user", text: `${P.contextBlock(ctx)}\n\nExplain this plan to the owner.` }],
-      maxTokens: 900,
-      temperature: 0.3,
+      maxTokens: 3000,
     };
     const { res, usage } = await this.call(userId, "explain", req);
     if (!res.text) throw aiError(502, "ai_error", "The AI returned an empty answer. Please try again.");
@@ -206,7 +203,7 @@ export class AiService implements OnModuleInit, OnModuleDestroy {
       ...past,
       { role: "user", text: question },
     ];
-    const req: LlmRequest = { model: this.cfg.fastModel, system: P.ASK_SYSTEM, messages: fixAlternation(messages), maxTokens: 600, temperature: 0.2 };
+    const req: LlmRequest = { model: this.cfg.fastModel, system: P.ASK_SYSTEM, messages: fixAlternation(messages), maxTokens: 2000 };
     const { res, usage } = await this.call(userId, "ask", req);
     return { answer: res.text || "I couldn't find an answer to that in your plan.", usage };
   }
