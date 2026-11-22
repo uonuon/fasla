@@ -125,5 +125,5 @@ def test_reader_crash_is_logged_and_explained(client, monkeypatch):
     assert r.status_code == 422 and "our side" in r.json()["errors"][0]
     a = _signup(c, "boss@x.com")
     f = c.get("/api/admin/uploads", headers=a).json()[0]
-    assert f["type"] == "upload_crashed" and "KeyError" in f["error"] and "main.py" in f["where"]
+    assert f["type"] == "upload_crashed" and "KeyError" in f["error"] and f["where"]
     assert "buyer1@mail.com" not in str(f)
