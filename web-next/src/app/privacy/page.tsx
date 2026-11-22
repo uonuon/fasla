@@ -44,8 +44,8 @@ export default function Privacy() {
             to improve the product. We don&apos;t use advertising trackers or third-party analytics.
           </li>
           <li>
-            <b>AI assistant:</b> if you use it, your plan&apos;s numbers are sent to the AI model to answer you (Anthropic Claude on
-            Amazon Bedrock, processed in the EU). We count how much you use it, and we keep plan explanations so we don&apos;t
+            <b>AI assistant:</b> if you use it, your plan&apos;s numbers are sent to the AI model to answer you (Anthropic&apos;s Claude API,
+            processed by Anthropic in the United States; Anthropic doesn&apos;t train its models on this data). We count how much you use it, and we keep plan explanations so we don&apos;t
             pay for them twice. Your questions and answers are not stored.
           </li>
         </ul>

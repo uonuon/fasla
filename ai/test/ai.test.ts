@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildApp } from "../src/main.js";
 import { config, costUsd } from "../src/config.js";
 import { MemoryLedger } from "../src/ledger.js";
-import { FakeLlm, type Llm, type LlmRequest, type LlmResult } from "../src/llm.js";
+import { AnthropicLlm, FakeLlm, LlmError, type Llm, type LlmRequest, type LlmResult } from "../src/llm.js";
 import { RateLimiter } from "../src/ai.service.js";
 
 type Opts = { budget?: number; perMinute?: number; key?: string; llm?: Llm };
@@ -146,7 +146,55 @@ test("arabic headers and statuses with the fake model", async () => {
 
 test("cost uses list prices and never treats unknown models as free", () => {
   const cfg = config();
-  assert.equal(costUsd(cfg, "eu.anthropic.claude-haiku-5-5", 1_000_000, 0), 0.11);
-  assert.equal(costUsd(cfg, "eu.anthropic.claude-sonnet-5-5", 0, 1_000_000), 11);
+  assert.equal(costUsd(cfg, "claude-haiku-5-5", 1_000_000, 0), 0.1);
+  assert.equal(costUsd(cfg, "claude-sonnet-5-5", 0, 1_000_000), 10);
   assert.ok(costUsd(cfg, "unknown-model", 0, 1_000_000) >= 10);
+});
+
+function fakeFetch(responses: { status: number; body: unknown; headers?: Record<string, string> }[]) {
+  const seen: { url: string; init: RequestInit }[] = [];
+  const fn = (async (url: string, init: RequestInit) => {
+    seen.push({ url, init });
+    const r = responses.shift()!;
+    return new Response(typeof r.body === "string" ? r.body : JSON.stringify(r.body), { status: r.status, headers: r.headers });
+  }) as unknown as typeof fetch;
+  return { fn, seen };
+}
+
+test("Anthropic provider sends a tool call and reads tool input and usage", async () => {
+  const { fn, seen } = fakeFetch([
+    { status: 200, body: { content: [{ type: "tool_use", name: "map_columns", input: { date: "d" } }], usage: { input_tokens: 900, output_tokens: 40 } } },
+  ]);
+  const llm = new AnthropicLlm({ ...config(), anthropicApiKey: "sk-test" }, fn);
+  const r = await llm.complete({
+    model: "claude-haiku-5-5", system: "s", maxTokens: 300, messages: [{ role: "user", text: "hi" }],
+    tool: { name: "map_columns", description: "d", schema: { type: "object" } },
+  });
+  assert.deepEqual(r.json, { date: "d" });
+  assert.equal(r.inputTokens, 900);
+  assert.equal(r.outputTokens, 40);
+  const body = JSON.parse(String(seen[0].init.body));
+  assert.equal(body.max_tokens, 300);
+  assert.deepEqual(body.tool_choice, { type: "tool", name: "map_columns" });
+  assert.equal((seen[0].init.headers as Record<string, string>)["x-api-key"], "sk-test");
+});
+
+test("Anthropic provider retries when overloaded, and explains auth and missing-key problems", async () => {
+  const ok = { status: 200, body: { content: [{ type: "text", text: "hello" }], usage: { input_tokens: 5, output_tokens: 2 } } };
+  const retry = fakeFetch([{ status: 529, body: "overloaded", headers: { "retry-after": "0.01" } }, ok]);
+  const r = await new AnthropicLlm({ ...config(), anthropicApiKey: "sk-test" }, retry.fn).complete({
+    model: "claude-sonnet-5-5", system: "s", maxTokens: 50, messages: [{ role: "user", text: "q" }],
+  });
+  assert.equal(r.text, "hello");
+  assert.equal(retry.seen.length, 2);
+
+  const denied = fakeFetch([{ status: 401, body: "bad key" }]);
+  await assert.rejects(
+    new AnthropicLlm({ ...config(), anthropicApiKey: "sk-bad" }, denied.fn).complete({ model: "m", system: "s", maxTokens: 5, messages: [{ role: "user", text: "q" }] }),
+    (e: unknown) => e instanceof LlmError && /isn't set up/.test(e.message),
+  );
+  await assert.rejects(
+    new AnthropicLlm({ ...config(), anthropicApiKey: "-" }, denied.fn).complete({ model: "m", system: "s", maxTokens: 5, messages: [{ role: "user", text: "q" }] }),
+    (e: unknown) => e instanceof LlmError && /isn't set up/.test(e.message),
+  );
 });

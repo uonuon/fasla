@@ -26,7 +26,7 @@ export interface AppStackProps extends StackProps {
  * The running app:  browser ── HTTPS ──> CloudFront ── HTTP ──> load balancer ──> Fargate task (Docker image of this repo)
  *
  * The task runs two containers: the web app (Python) and the AI service (Node, ai/) as a sidecar that only
- * listens on localhost, so only the web app can reach it. The AI service calls Amazon Bedrock with the task role.
+ * listens on localhost, so only the web app can reach it. The AI service calls the Anthropic API with a key kept in Secrets Manager.
  *
  * Plans don't run in the web task: "Build my plan" puts a job on an SQS queue and a separate worker service
  * (same image, `python -m fasla.worker`) runs it. The worker scales from 0 when a job arrives and back to 0
@@ -75,6 +75,14 @@ export class AppStack extends Stack {
       secretStringValue: cdk.SecretValue.unsafePlainText("-"),
     });
 
+    // Anthropic API key for the AI sidecar. Created as "-" (AI off); paste the real key in the Secrets Manager console,
+    // then force a new deployment of the web service. Spending is still capped by the app's monthly AI budget.
+    const anthropicKey = new secretsmanager.Secret(this, "AnthropicApiKey", {
+      secretName: "fasla/anthropic-api-key",
+      description: "Anthropic API key used by the Fasla AI sidecar",
+      secretStringValue: cdk.SecretValue.unsafePlainText("-"),
+    });
+
     // Alerts (AI budget 80% / 100%). Subscribe an email to this topic in the SNS console.
     const alerts = new sns.Topic(this, "Alerts", { topicName: "fasla-alerts", displayName: "Fasla alerts" });
 
@@ -108,8 +116,8 @@ export class AppStack extends Stack {
     };
 
     const aiModels = {
-      fast: "eu.anthropic.claude-haiku-5-5",
-      smart: "eu.anthropic.claude-sonnet-5-5",
+      fast: "claude-haiku-5-5",
+      smart: "claude-sonnet-5-5",
     };
 
     const svc = new ecsPatterns.ApplicationLoadBalancedFargateService(this, "Web", {
@@ -151,7 +159,7 @@ export class AppStack extends Stack {
       environment: {
         AI_HOST: "127.0.0.1",
         AI_PORT: "3001",
-        AI_PROVIDER: "bedrock",
+        AI_PROVIDER: "anthropic",
         AI_FAST_MODEL: aiModels.fast,
         AI_SMART_MODEL: aiModels.smart,
         AI_MONTHLY_BUDGET_USD: "10",
@@ -166,18 +174,9 @@ export class AppStack extends Stack {
       secrets: {
         AI_INTERNAL_KEY: ecs.Secret.fromSecretsManager(aiKey),
         AI_DATABASE_URL: secret("DATABASE_URL"),
+        ANTHROPIC_API_KEY: ecs.Secret.fromSecretsManager(anthropicKey),
       },
     });
-    // Bedrock: only these two models, through their EU inference profiles (requests may run in any EU Region).
-    svc.taskDefinition.taskRole.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
-        resources: [
-          ...Object.values(aiModels).map((id) => `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/${id}`),
-          ...Object.values(aiModels).map((id) => `arn:aws:bedrock:*::foundation-model/${id.replace(/^eu\./, "")}`),
-        ],
-      }),
-    );
     alerts.grantPublish(svc.taskDefinition.taskRole);
 
     planQueue.grantSendMessages(svc.taskDefinition.taskRole);

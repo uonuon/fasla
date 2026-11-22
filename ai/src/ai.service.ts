@@ -222,7 +222,7 @@ function clip(context: unknown): unknown {
   throw aiError(413, "too_large", "This plan is too large for the AI assistant.");
 }
 
-/** Bedrock requires user/assistant turns to alternate. */
+/** The model API requires user/assistant turns to alternate. */
 function fixAlternation(msgs: LlmRequest["messages"]): LlmRequest["messages"] {
   const out: LlmRequest["messages"] = [];
   for (const m of msgs) {

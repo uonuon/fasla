@@ -1,4 +1,3 @@
-import { BedrockRuntimeClient, ConverseCommand, type Message, type Tool } from "@aws-sdk/client-bedrock-runtime";
 import type { Config } from "./config.js";
 
 export type LlmRequest = {
@@ -23,53 +22,85 @@ export class LlmError extends Error {
   }
 }
 
-/** Amazon Bedrock, Converse API. maxTokens is always explicit (it reserves quota). */
-export class BedrockLlm implements Llm {
-  private client: BedrockRuntimeClient;
-  constructor(cfg: Config) {
-    this.client = new BedrockRuntimeClient({ region: cfg.region, maxAttempts: 4, retryMode: "adaptive" });
-  }
+const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+
+/** Anthropic Messages API. max_tokens is always explicit; transient errors are retried with backoff. */
+export class AnthropicLlm implements Llm {
+  constructor(
+    private readonly cfg: Config,
+    private readonly fetchFn: typeof fetch = fetch,
+  ) {}
 
   async complete(req: LlmRequest): Promise<LlmResult> {
-    const messages: Message[] = req.messages.map((m) => ({ role: m.role, content: [{ text: m.text }] }));
-    const tools: Tool[] | undefined = req.tool
-      ? [{ toolSpec: { name: req.tool.name, description: req.tool.description, inputSchema: { json: req.tool.schema as never } } }]
-      : undefined;
-    try {
-      const r = await this.client.send(
-        new ConverseCommand({
-          modelId: req.model,
-          system: [{ text: req.system }],
-          messages,
-          inferenceConfig: { maxTokens: req.maxTokens, temperature: req.temperature ?? 0.2 },
-          ...(tools ? { toolConfig: { tools, toolChoice: { tool: { name: req.tool!.name } } } } : {}),
-        }),
-      );
-      const content = r.output?.message?.content ?? [];
-      const text = content.map((c) => c.text ?? "").join("").trim();
-      const tool = content.find((c) => c.toolUse)?.toolUse;
-      return {
-        text,
-        json: tool?.input,
-        inputTokens: r.usage?.inputTokens ?? 0,
-        outputTokens: r.usage?.outputTokens ?? 0,
-        model: req.model,
-      };
-    } catch (e) {
-      const name = (e as { name?: string }).name ?? "";
-      const retryable = ["ThrottlingException", "ModelTimeoutException", "ServiceUnavailableException", "InternalServerException"].includes(name);
-      console.error(JSON.stringify({ level: "error", msg: "bedrock call failed", model: req.model, error: name, detail: String((e as Error).message).slice(0, 300) }));
-      throw new LlmError(
-        name === "AccessDeniedException"
-          ? "The AI model isn't enabled for this AWS project yet."
-          : retryable
-            ? "The AI is busy right now. Please try again in a minute."
-            : "The AI couldn't answer this time. Please try again.",
-        retryable,
-      );
+    const key = this.cfg.anthropicApiKey;
+    if (!key || key === "-") throw new LlmError("The AI isn't set up yet.");
+    const body = {
+      model: req.model,
+      max_tokens: req.maxTokens,
+      temperature: req.temperature ?? 0.2,
+      system: req.system,
+      messages: req.messages.map((m) => ({ role: m.role, content: m.text })),
+      ...(req.tool
+        ? {
+            tools: [{ name: req.tool.name, description: req.tool.description, input_schema: req.tool.schema }],
+            tool_choice: { type: "tool", name: req.tool.name },
+          }
+        : {}),
+    };
+    let lastStatus = 0;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      let res: Response;
+      try {
+        res = await this.fetchFn(ANTHROPIC_URL, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(60_000),
+        });
+      } catch (e) {
+        lastStatus = 0;
+        console.error(JSON.stringify({ level: "error", msg: "anthropic call failed", model: req.model, error: String((e as Error).message).slice(0, 200) }));
+        await sleep(1000 * 2 ** attempt);
+        continue;
+      }
+      if (res.ok) {
+        const r = (await res.json()) as {
+          content?: { type: string; text?: string; input?: unknown }[];
+          usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number };
+        };
+        const content = r.content ?? [];
+        const u = r.usage ?? {};
+        return {
+          text: content.filter((c) => c.type === "text").map((c) => c.text ?? "").join("").trim(),
+          json: content.find((c) => c.type === "tool_use")?.input,
+          inputTokens: (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0),
+          outputTokens: u.output_tokens ?? 0,
+          model: req.model,
+        };
+      }
+      lastStatus = res.status;
+      const detail = (await res.text().catch(() => "")).slice(0, 300);
+      console.error(JSON.stringify({ level: "error", msg: "anthropic call failed", model: req.model, status: res.status, detail }));
+      if (![429, 500, 502, 503, 504, 529].includes(res.status)) {
+        throw new LlmError(
+          res.status === 401 || res.status === 403
+            ? "The AI isn't set up yet."
+            : /credit balance/i.test(detail)
+              ? "The AI is paused for now. Please try again later."
+              : "The AI couldn't answer this time. Please try again.",
+        );
+      }
+      const wait = Number(res.headers.get("retry-after"));
+      await sleep(Number.isFinite(wait) && wait > 0 ? Math.min(wait, 10) * 1000 : 1000 * 2 ** attempt);
     }
+    throw new LlmError(
+      lastStatus === 429 || lastStatus === 529 ? "The AI is busy right now. Please try again in a minute." : "The AI couldn't answer this time. Please try again.",
+      true,
+    );
   }
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Deterministic stand-in for tests and local work without AWS. */
 export class FakeLlm implements Llm {
