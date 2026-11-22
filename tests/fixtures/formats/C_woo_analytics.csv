@@ -1,0 +1,201 @@
+Date,Order #,Status,Customer,Customer type,Product(s),Items sold,Coupon(s),Net Sales
+2026-01-26 00:00:00,1000,Completed,Ahmed,new,"1× Classic Oversized Tee - White, L, 1× Classic Oversized Tee - Olive, M",2,,700
+2025-11-02 00:00:00,1001,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, M, 1× Classic Oversized Tee - Olive, M",2,,700
+2025-07-15 00:00:00,1002,Completed,Ahmed,new,"1× Heavy Hoodie - White, S, 1× Classic Oversized Tee - Olive, M",2,,1200
+2025-05-04 00:00:00,1003,Completed,Ahmed,new,"2× Cargo Pants - Black, L, 1× Heavy Hoodie - Olive, XL",3,,2250
+2025-09-01 00:00:00,1004,Completed,Ahmed,new,"1× Cargo Pants - Black, S, 1× Cargo Pants - White, M",2,,1400
+2025-08-16 00:00:00,1005,Refunded,Ahmed,new,"2× Heavy Hoodie - Black, XL, 1× Cargo Pants - Olive, L",3,,2400
+2026-07-22 00:00:00,1006,Completed,Ahmed,new,"1× Cargo Pants - White, S, 2× Classic Oversized Tee - Olive, L",3,,1400
+2026-02-19 00:00:00,1007,Completed,Ahmed,new,"1× Classic Oversized Tee - White, M, 2× Classic Oversized Tee - Olive, M",3,,1050
+2026-06-03 00:00:00,1008,Cancelled,Ahmed,new,"1× Heavy Hoodie - Olive, M, 2× Cargo Pants - White, XL",3,,2250
+2025-08-28 00:00:00,1009,Cancelled,Ahmed,new,"1× Classic Oversized Tee - Black, L, 2× Heavy Hoodie - White, S",3,,2050
+2026-10-01 00:00:00,1010,Cancelled,Ahmed,new,"1× Heavy Hoodie - Black, L, 1× Heavy Hoodie - White, M",2,,1700
+2025-05-03 00:00:00,1011,Completed,Ahmed,new,"2× Classic Oversized Tee - Black, XL, 1× Classic Oversized Tee - Black, M",3,,1050
+2025-05-12 00:00:00,1012,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, M, 2× Classic Oversized Tee - Black, L",3,,1050
+2025-05-27 00:00:00,1013,Cancelled,Ahmed,new,"1× Classic Oversized Tee - Black, L, 1× Cargo Pants - Black, M",2,,1050
+2025-03-28 00:00:00,1014,Completed,Ahmed,new,"1× Cargo Pants - White, XL, 1× Heavy Hoodie - Black, M",2,,1550
+2025-09-16 00:00:00,1015,Completed,Ahmed,new,"1× Classic Oversized Tee - White, L, 1× Cargo Pants - Black, XL",2,,1050
+2026-02-16 00:00:00,1016,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, XL, 2× Heavy Hoodie - Black, M",3,,2550
+2025-03-02 00:00:00,1017,Cancelled,Ahmed,new,"1× Heavy Hoodie - Olive, M, 1× Heavy Hoodie - Black, M",2,,1700
+2026-04-10 00:00:00,1018,Completed,Ahmed,new,"1× Heavy Hoodie - White, L, 2× Classic Oversized Tee - Black, M",3,,1550
+2026-06-29 00:00:00,1019,Completed,Ahmed,new,"1× Cargo Pants - White, S, 2× Cargo Pants - Olive, XL",3,,2100
+2025-10-03 00:00:00,1020,Completed,Ahmed,new,"1× Classic Oversized Tee - White, M, 1× Heavy Hoodie - Black, S",2,,1200
+2026-08-12 00:00:00,1021,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, S, 1× Classic Oversized Tee - Olive, S",2,,1200
+2025-07-02 00:00:00,1022,Cancelled,Ahmed,new,"2× Cargo Pants - Black, M, 1× Classic Oversized Tee - Black, M",3,,1750
+2025-03-29 00:00:00,1023,Completed,Ahmed,new,"1× Classic Oversized Tee - White, M, 1× Heavy Hoodie - Olive, XL",2,,1200
+2025-09-24 00:00:00,1024,Completed,Ahmed,new,"2× Heavy Hoodie - Black, M, 1× Heavy Hoodie - Black, M",3,,2550
+2025-08-06 00:00:00,1025,Cancelled,Ahmed,new,"1× Cargo Pants - Olive, L, 2× Classic Oversized Tee - Olive, XL",3,,1400
+2025-10-16 00:00:00,1026,Completed,Ahmed,new,"2× Classic Oversized Tee - Olive, M, 1× Heavy Hoodie - Black, L",3,,1550
+2026-05-26 00:00:00,1027,Refunded,Ahmed,new,"1× Cargo Pants - Black, M, 1× Classic Oversized Tee - Black, S",2,,1050
+2025-09-02 00:00:00,1028,Completed,Ahmed,new,"1× Heavy Hoodie - Black, L, 1× Cargo Pants - White, L",2,,1550
+2025-09-04 00:00:00,1029,Cancelled,Ahmed,new,"1× Heavy Hoodie - Black, M, 1× Cargo Pants - Black, S",2,,1550
+2026-09-18 00:00:00,1030,Completed,Ahmed,new,"1× Heavy Hoodie - White, L, 1× Classic Oversized Tee - White, S",2,,1200
+2026-08-26 00:00:00,1031,Completed,Ahmed,new,"1× Classic Oversized Tee - White, M, 1× Heavy Hoodie - Black, S",2,,1200
+2026-06-01 00:00:00,1032,Completed,Ahmed,new,"2× Classic Oversized Tee - Olive, L, 1× Cargo Pants - White, L",3,,1400
+2025-07-22 00:00:00,1033,Completed,Ahmed,new,"1× Heavy Hoodie - White, XL, 2× Heavy Hoodie - Black, S",3,,2550
+2025-12-14 00:00:00,1034,Completed,Ahmed,new,"1× Cargo Pants - Black, L, 1× Heavy Hoodie - Black, M",2,,1550
+2025-04-05 00:00:00,1035,Completed,Ahmed,new,"1× Heavy Hoodie - Black, M, 1× Heavy Hoodie - Olive, L",2,,1700
+2025-06-02 00:00:00,1036,Completed,Ahmed,new,"1× Heavy Hoodie - Black, S, 1× Cargo Pants - Black, S",2,,1550
+2026-01-28 00:00:00,1037,Cancelled,Ahmed,new,"1× Cargo Pants - White, S, 1× Cargo Pants - White, L",2,,1400
+2026-10-04 00:00:00,1038,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, M, 2× Cargo Pants - White, XL",3,,1750
+2025-03-20 00:00:00,1039,Completed,Ahmed,new,"2× Cargo Pants - Olive, L, 1× Cargo Pants - Olive, L",3,,2100
+2026-06-29 00:00:00,1040,Completed,Ahmed,new,"1× Heavy Hoodie - Black, L, 1× Heavy Hoodie - White, S",2,,1700
+2025-09-20 00:00:00,1041,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, S, 1× Classic Oversized Tee - White, S",2,,700
+2026-07-15 00:00:00,1042,Completed,Ahmed,new,"2× Heavy Hoodie - Olive, M, 1× Cargo Pants - Black, M",3,,2400
+2026-06-13 00:00:00,1043,Completed,Ahmed,new,"2× Classic Oversized Tee - Olive, XL, 1× Classic Oversized Tee - Olive, S",3,,1050
+2026-08-03 00:00:00,1044,Cancelled,Ahmed,new,"1× Heavy Hoodie - Black, L, 2× Heavy Hoodie - Black, S",3,,2550
+2025-07-23 00:00:00,1045,Completed,Ahmed,new,"1× Heavy Hoodie - White, M, 1× Heavy Hoodie - Black, XL",2,,1700
+2025-12-22 00:00:00,1046,Completed,Ahmed,new,"2× Heavy Hoodie - White, S, 1× Heavy Hoodie - Black, M",3,,2550
+2025-07-31 00:00:00,1047,Completed,Ahmed,new,"1× Classic Oversized Tee - White, M, 1× Classic Oversized Tee - Olive, M",2,,700
+2026-04-25 00:00:00,1048,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, L, 1× Classic Oversized Tee - Black, M",2,,1200
+2025-11-22 00:00:00,1049,Completed,Ahmed,new,"2× Heavy Hoodie - Olive, M, 1× Classic Oversized Tee - Olive, S",3,,2050
+2026-07-23 00:00:00,1050,Completed,Ahmed,new,"1× Cargo Pants - Black, M, 1× Classic Oversized Tee - Black, S",2,,1050
+2025-10-31 00:00:00,1051,Completed,Ahmed,new,"1× Heavy Hoodie - White, L, 1× Heavy Hoodie - White, L",2,,1700
+2025-05-03 00:00:00,1052,Completed,Ahmed,new,"1× Heavy Hoodie - White, M, 1× Cargo Pants - Black, S",2,,1550
+2026-05-31 00:00:00,1053,Completed,Ahmed,new,"1× Heavy Hoodie - White, L, 2× Cargo Pants - White, S",3,,2250
+2026-06-03 00:00:00,1054,Refunded,Ahmed,new,"1× Classic Oversized Tee - Black, M, 2× Cargo Pants - Olive, L",3,,1750
+2025-04-10 00:00:00,1055,Refunded,Ahmed,new,"1× Classic Oversized Tee - Black, M, 1× Cargo Pants - Olive, M",2,,1050
+2026-08-20 00:00:00,1056,Completed,Ahmed,new,"1× Cargo Pants - Black, M, 1× Heavy Hoodie - White, M",2,,1550
+2025-10-27 00:00:00,1057,Completed,Ahmed,new,"2× Cargo Pants - Black, S, 1× Heavy Hoodie - Olive, L",3,,2250
+2026-05-09 00:00:00,1058,Completed,Ahmed,new,"1× Heavy Hoodie - Black, M, 1× Classic Oversized Tee - Black, L",2,,1200
+2025-09-22 00:00:00,1059,Completed,Ahmed,new,"1× Heavy Hoodie - Black, M, 1× Classic Oversized Tee - Olive, M",2,,1200
+2025-04-27 00:00:00,1060,Completed,Ahmed,new,"1× Cargo Pants - Black, XL, 1× Heavy Hoodie - Black, L",2,,1550
+2026-01-16 00:00:00,1061,Completed,Ahmed,new,"1× Cargo Pants - Black, XL, 2× Cargo Pants - White, S",3,,2100
+2026-05-28 00:00:00,1062,Completed,Ahmed,new,"1× Classic Oversized Tee - Black, S, 1× Cargo Pants - Black, M",2,,1050
+2026-06-28 00:00:00,1063,Completed,Ahmed,new,"2× Classic Oversized Tee - White, M, 2× Classic Oversized Tee - Olive, M",4,,1400
+2026-06-19 00:00:00,1064,Completed,Ahmed,new,"1× Classic Oversized Tee - Black, M, 1× Heavy Hoodie - Olive, S",2,,1200
+2025-05-06 00:00:00,1065,Completed,Ahmed,new,"2× Classic Oversized Tee - Black, S, 1× Heavy Hoodie - Black, XL",3,,1550
+2026-01-05 00:00:00,1066,Completed,Ahmed,new,"1× Cargo Pants - Black, L, 1× Cargo Pants - Black, M",2,,1400
+2025-04-04 00:00:00,1067,Cancelled,Ahmed,new,"1× Heavy Hoodie - Olive, M, 1× Heavy Hoodie - Olive, S",2,,1700
+2026-06-01 00:00:00,1068,Cancelled,Ahmed,new,"2× Classic Oversized Tee - Black, S, 1× Cargo Pants - Olive, L",3,,1400
+2026-10-02 00:00:00,1069,Completed,Ahmed,new,"1× Heavy Hoodie - White, M, 1× Classic Oversized Tee - Black, S",2,,1200
+2025-11-13 00:00:00,1070,Refunded,Ahmed,new,"1× Classic Oversized Tee - Olive, M, 1× Classic Oversized Tee - White, L",2,,700
+2025-04-11 00:00:00,1071,Refunded,Ahmed,new,"1× Heavy Hoodie - Black, S, 1× Classic Oversized Tee - Black, M",2,,1200
+2025-03-07 00:00:00,1072,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, M, 1× Classic Oversized Tee - Black, M",2,,700
+2025-09-25 00:00:00,1073,Completed,Ahmed,new,"1× Classic Oversized Tee - White, M, 2× Classic Oversized Tee - Black, L",3,,1050
+2026-04-09 00:00:00,1074,Completed,Ahmed,new,"1× Cargo Pants - Olive, S, 2× Heavy Hoodie - White, L",3,,2400
+2026-10-02 00:00:00,1075,Completed,Ahmed,new,"1× Heavy Hoodie - White, M, 1× Classic Oversized Tee - Black, M",2,,1200
+2025-06-01 00:00:00,1076,Completed,Ahmed,new,"2× Heavy Hoodie - Olive, L, 2× Cargo Pants - Black, L",4,,3100
+2026-03-15 00:00:00,1077,Completed,Ahmed,new,"1× Cargo Pants - Olive, S, 1× Classic Oversized Tee - Black, M",2,,1050
+2025-04-14 00:00:00,1078,Cancelled,Ahmed,new,"2× Heavy Hoodie - White, S, 1× Cargo Pants - Black, L",3,,2400
+2025-10-10 00:00:00,1079,Completed,Ahmed,new,"1× Classic Oversized Tee - White, XL, 1× Classic Oversized Tee - Olive, L",2,,700
+2025-04-09 00:00:00,1080,Cancelled,Ahmed,new,"2× Cargo Pants - White, S, 1× Cargo Pants - White, M",3,,2100
+2026-03-12 00:00:00,1081,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, M, 2× Heavy Hoodie - Black, M",3,,2550
+2026-04-14 00:00:00,1082,Completed,Ahmed,new,"2× Classic Oversized Tee - Black, S, 1× Cargo Pants - Olive, L",3,,1400
+2026-01-16 00:00:00,1083,Completed,Ahmed,new,"2× Cargo Pants - Olive, S, 1× Cargo Pants - Olive, L",3,,2100
+2026-07-17 00:00:00,1084,Cancelled,Ahmed,new,"1× Heavy Hoodie - Black, L, 1× Classic Oversized Tee - White, L",2,,1200
+2026-07-28 00:00:00,1085,Completed,Ahmed,new,"1× Heavy Hoodie - Black, M, 1× Classic Oversized Tee - White, S",2,,1200
+2025-08-20 00:00:00,1086,Refunded,Ahmed,new,"1× Heavy Hoodie - Black, L, 1× Cargo Pants - Olive, M",2,,1550
+2026-04-08 00:00:00,1087,Completed,Ahmed,new,"1× Cargo Pants - White, M, 1× Classic Oversized Tee - White, M",2,,1050
+2025-11-15 00:00:00,1088,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, XL, 2× Classic Oversized Tee - White, L",3,,1550
+2025-04-18 00:00:00,1089,Completed,Ahmed,new,"1× Classic Oversized Tee - White, M, 1× Heavy Hoodie - White, S",2,,1200
+2026-10-19 00:00:00,1090,Cancelled,Ahmed,new,"1× Heavy Hoodie - Olive, S, 1× Classic Oversized Tee - Black, XL",2,,1200
+2025-05-05 00:00:00,1091,Cancelled,Ahmed,new,"1× Cargo Pants - Black, L, 1× Classic Oversized Tee - Olive, L",2,,1050
+2026-05-29 00:00:00,1092,Cancelled,Ahmed,new,"1× Cargo Pants - Olive, L, 1× Classic Oversized Tee - Olive, S",2,,1050
+2025-06-16 00:00:00,1093,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, M, 2× Cargo Pants - Olive, M",3,,1750
+2026-01-11 00:00:00,1094,Completed,Ahmed,new,"2× Classic Oversized Tee - White, L, 2× Cargo Pants - White, S",4,,2100
+2025-06-16 00:00:00,1095,Cancelled,Ahmed,new,"1× Heavy Hoodie - Black, L, 2× Cargo Pants - Black, M",3,,2250
+2025-12-28 00:00:00,1096,Completed,Ahmed,new,"1× Cargo Pants - Black, S, 1× Cargo Pants - Black, XL",2,,1400
+2026-01-31 00:00:00,1097,Cancelled,Ahmed,new,"2× Cargo Pants - Black, M, 1× Classic Oversized Tee - White, XL",3,,1750
+2025-10-04 00:00:00,1098,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, M, 1× Classic Oversized Tee - Olive, XL",2,,1200
+2025-04-01 00:00:00,1099,Completed,Ahmed,new,"1× Classic Oversized Tee - Black, L, 1× Cargo Pants - White, S",2,,1050
+2025-09-27 00:00:00,1100,Completed,Ahmed,new,"1× Classic Oversized Tee - Black, S, 1× Classic Oversized Tee - Olive, M",2,,700
+2025-03-22 00:00:00,1101,Cancelled,Ahmed,new,"1× Heavy Hoodie - White, XL, 1× Heavy Hoodie - White, L",2,,1700
+2026-08-14 00:00:00,1102,Completed,Ahmed,new,"1× Classic Oversized Tee - White, M, 1× Cargo Pants - White, S",2,,1050
+2025-04-25 00:00:00,1103,Refunded,Ahmed,new,"2× Classic Oversized Tee - White, M, 1× Cargo Pants - White, M",3,,1400
+2025-10-24 00:00:00,1104,Completed,Ahmed,new,"1× Heavy Hoodie - Black, S, 1× Classic Oversized Tee - Olive, M",2,,1200
+2025-05-28 00:00:00,1105,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, S, 1× Cargo Pants - Black, M",2,,1550
+2025-04-04 00:00:00,1106,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, M, 1× Classic Oversized Tee - White, M",2,,1200
+2026-02-06 00:00:00,1107,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, L, 1× Cargo Pants - Olive, S",2,,1550
+2026-08-17 00:00:00,1108,Refunded,Ahmed,new,"1× Heavy Hoodie - Black, M, 2× Classic Oversized Tee - Olive, S",3,,1550
+2026-01-04 00:00:00,1109,Completed,Ahmed,new,"1× Cargo Pants - White, M, 2× Heavy Hoodie - Black, L",3,,2400
+2026-05-22 00:00:00,1110,Completed,Ahmed,new,"1× Cargo Pants - Black, M, 1× Cargo Pants - Olive, M",2,,1400
+2026-05-06 00:00:00,1111,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, L, 1× Heavy Hoodie - White, M",2,,1200
+2026-04-14 00:00:00,1112,Completed,Ahmed,new,"1× Cargo Pants - Olive, L, 1× Cargo Pants - White, M",2,,1400
+2026-04-03 00:00:00,1113,Completed,Ahmed,new,"1× Heavy Hoodie - Black, S, 2× Cargo Pants - White, S",3,,2250
+2026-07-01 00:00:00,1114,Completed,Ahmed,new,"1× Cargo Pants - Black, L, 1× Classic Oversized Tee - Olive, S",2,,1050
+2025-04-27 00:00:00,1115,Completed,Ahmed,new,"1× Heavy Hoodie - White, M, 1× Cargo Pants - Olive, L",2,,1550
+2026-04-15 00:00:00,1116,Completed,Ahmed,new,"2× Cargo Pants - Black, XL, 1× Classic Oversized Tee - Olive, S",3,,1750
+2026-04-28 00:00:00,1117,Completed,Ahmed,new,"1× Heavy Hoodie - White, L, 1× Heavy Hoodie - Olive, M",2,,1700
+2026-07-07 00:00:00,1118,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, L, 1× Heavy Hoodie - White, M",2,,1200
+2026-01-05 00:00:00,1119,Completed,Ahmed,new,"1× Heavy Hoodie - Black, S, 1× Cargo Pants - Olive, S",2,,1550
+2025-12-26 00:00:00,1120,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, S, 2× Heavy Hoodie - Black, M",3,,2550
+2025-06-01 00:00:00,1121,Completed,Ahmed,new,"1× Cargo Pants - Olive, L, 2× Cargo Pants - Black, L",3,,2100
+2025-11-26 00:00:00,1122,Completed,Ahmed,new,"2× Heavy Hoodie - Black, L, 1× Heavy Hoodie - Black, L",3,,2550
+2025-03-07 00:00:00,1123,Cancelled,Ahmed,new,"2× Classic Oversized Tee - White, M, 1× Heavy Hoodie - White, XL",3,,1550
+2025-03-30 00:00:00,1124,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, S, 2× Classic Oversized Tee - Black, M",3,,1050
+2026-03-10 00:00:00,1125,Completed,Ahmed,new,"1× Heavy Hoodie - White, L, 1× Heavy Hoodie - Olive, S",2,,1700
+2026-07-19 00:00:00,1126,Completed,Ahmed,new,"1× Heavy Hoodie - White, M, 1× Cargo Pants - White, L",2,,1550
+2026-01-01 00:00:00,1127,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, XL, 2× Heavy Hoodie - Olive, M",3,,2050
+2025-04-17 00:00:00,1128,Cancelled,Ahmed,new,"1× Classic Oversized Tee - White, L, 1× Cargo Pants - Black, L",2,,1050
+2026-06-12 00:00:00,1129,Completed,Ahmed,new,"1× Cargo Pants - Black, S, 1× Cargo Pants - Black, M",2,,1400
+2025-11-20 00:00:00,1130,Completed,Ahmed,new,"1× Heavy Hoodie - Black, M, 1× Classic Oversized Tee - White, M",2,,1200
+2026-05-06 00:00:00,1131,Completed,Ahmed,new,"2× Cargo Pants - Olive, XL, 1× Cargo Pants - Olive, XL",3,,2100
+2026-09-13 00:00:00,1132,Completed,Ahmed,new,"1× Classic Oversized Tee - Black, L, 1× Classic Oversized Tee - Black, L",2,,700
+2025-07-03 00:00:00,1133,Completed,Ahmed,new,"1× Classic Oversized Tee - White, S, 1× Classic Oversized Tee - White, L",2,,700
+2026-09-22 00:00:00,1134,Completed,Ahmed,new,"1× Cargo Pants - White, M, 1× Classic Oversized Tee - Black, L",2,,1050
+2025-08-17 00:00:00,1135,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, S, 1× Cargo Pants - Black, S",2,,1550
+2025-08-15 00:00:00,1136,Completed,Ahmed,new,"2× Cargo Pants - White, M, 1× Heavy Hoodie - White, M",3,,2250
+2025-03-16 00:00:00,1137,Completed,Ahmed,new,"2× Classic Oversized Tee - Olive, L, 1× Cargo Pants - Black, L",3,,1400
+2025-11-30 00:00:00,1138,Cancelled,Ahmed,new,"1× Heavy Hoodie - Black, M, 2× Classic Oversized Tee - White, XL",3,,1550
+2026-09-04 00:00:00,1139,Completed,Ahmed,new,"1× Cargo Pants - White, L, 1× Cargo Pants - White, M",2,,1400
+2025-03-10 00:00:00,1140,Completed,Ahmed,new,"1× Heavy Hoodie - White, M, 1× Cargo Pants - White, L",2,,1550
+2025-09-23 00:00:00,1141,Completed,Ahmed,new,"1× Classic Oversized Tee - Black, S, 1× Heavy Hoodie - White, L",2,,1200
+2026-07-19 00:00:00,1142,Completed,Ahmed,new,"2× Heavy Hoodie - Black, M, 1× Heavy Hoodie - White, M",3,,2550
+2026-10-01 00:00:00,1143,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, M, 1× Cargo Pants - Olive, XL",2,,1550
+2025-09-02 00:00:00,1144,Completed,Ahmed,new,"1× Heavy Hoodie - Black, S, 2× Heavy Hoodie - Black, L",3,,2550
+2025-06-01 00:00:00,1145,Completed,Ahmed,new,"1× Heavy Hoodie - White, M, 1× Classic Oversized Tee - White, XL",2,,1200
+2025-11-18 00:00:00,1146,Completed,Ahmed,new,"1× Heavy Hoodie - Black, XL, 2× Cargo Pants - Olive, L",3,,2250
+2026-01-20 00:00:00,1147,Completed,Ahmed,new,"1× Classic Oversized Tee - Black, L, 2× Heavy Hoodie - White, M",3,,2050
+2026-03-24 00:00:00,1148,Completed,Ahmed,new,"1× Classic Oversized Tee - White, M, 1× Classic Oversized Tee - Black, XL",2,,700
+2026-03-18 00:00:00,1149,Cancelled,Ahmed,new,"1× Cargo Pants - Black, L, 1× Heavy Hoodie - White, M",2,,1550
+2026-03-10 00:00:00,1150,Completed,Ahmed,new,"1× Classic Oversized Tee - White, M, 1× Classic Oversized Tee - White, L",2,,700
+2025-08-07 00:00:00,1151,Cancelled,Ahmed,new,"1× Classic Oversized Tee - White, M, 2× Heavy Hoodie - Black, M",3,,2050
+2026-08-08 00:00:00,1152,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, L, 1× Classic Oversized Tee - White, L",2,,700
+2025-10-31 00:00:00,1153,Completed,Ahmed,new,"2× Classic Oversized Tee - Black, M, 1× Classic Oversized Tee - Olive, S",3,,1050
+2025-03-02 00:00:00,1154,Cancelled,Ahmed,new,"2× Cargo Pants - White, S, 1× Heavy Hoodie - Olive, S",3,,2250
+2025-08-27 00:00:00,1155,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, S, 1× Classic Oversized Tee - Black, S",2,,700
+2025-03-11 00:00:00,1156,Completed,Ahmed,new,"2× Classic Oversized Tee - Olive, L, 2× Heavy Hoodie - White, L",4,,2400
+2026-07-02 00:00:00,1157,Cancelled,Ahmed,new,"1× Classic Oversized Tee - Olive, M, 1× Classic Oversized Tee - Black, L",2,,700
+2026-05-31 00:00:00,1158,Completed,Ahmed,new,"1× Cargo Pants - Black, S, 1× Cargo Pants - Black, M",2,,1400
+2025-03-27 00:00:00,1159,Completed,Ahmed,new,"1× Cargo Pants - Olive, S, 1× Classic Oversized Tee - Black, M",2,,1050
+2025-09-16 00:00:00,1160,Completed,Ahmed,new,"2× Heavy Hoodie - Black, L, 1× Classic Oversized Tee - White, L",3,,2050
+2026-06-20 00:00:00,1161,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, M, 1× Classic Oversized Tee - Olive, M",2,,1200
+2026-06-17 00:00:00,1162,Completed,Ahmed,new,"1× Cargo Pants - White, S, 1× Classic Oversized Tee - White, XL",2,,1050
+2025-11-02 00:00:00,1163,Cancelled,Ahmed,new,"1× Heavy Hoodie - Olive, M, 1× Heavy Hoodie - Olive, S",2,,1700
+2025-03-12 00:00:00,1164,Completed,Ahmed,new,"1× Heavy Hoodie - Black, M, 2× Cargo Pants - Black, M",3,,2250
+2026-06-08 00:00:00,1165,Cancelled,Ahmed,new,"1× Cargo Pants - Black, L, 1× Cargo Pants - Olive, M",2,,1400
+2025-07-03 00:00:00,1166,Completed,Ahmed,new,"1× Cargo Pants - Black, M, 1× Cargo Pants - Black, S",2,,1400
+2026-08-29 00:00:00,1167,Cancelled,Ahmed,new,"1× Classic Oversized Tee - White, S, 1× Heavy Hoodie - White, M",2,,1200
+2026-06-09 00:00:00,1168,Completed,Ahmed,new,"2× Cargo Pants - Olive, M, 2× Heavy Hoodie - Olive, M",4,,3100
+2025-04-01 00:00:00,1169,Completed,Ahmed,new,"2× Classic Oversized Tee - White, M, 1× Classic Oversized Tee - Black, M",3,,1050
+2025-10-08 00:00:00,1170,Completed,Ahmed,new,"1× Heavy Hoodie - Black, L, 2× Heavy Hoodie - Olive, S",3,,2550
+2025-06-20 00:00:00,1171,Completed,Ahmed,new,"1× Cargo Pants - Black, XL, 1× Classic Oversized Tee - Olive, M",2,,1050
+2026-06-30 00:00:00,1172,Cancelled,Ahmed,new,"1× Heavy Hoodie - Olive, L, 2× Heavy Hoodie - Olive, M",3,,2550
+2026-10-07 00:00:00,1173,Completed,Ahmed,new,"1× Classic Oversized Tee - White, L, 1× Heavy Hoodie - Olive, M",2,,1200
+2026-08-21 00:00:00,1174,Completed,Ahmed,new,"1× Cargo Pants - Olive, M, 1× Heavy Hoodie - White, M",2,,1550
+2026-03-22 00:00:00,1175,Refunded,Ahmed,new,"1× Cargo Pants - Black, S, 1× Heavy Hoodie - Black, XL",2,,1550
+2026-09-30 00:00:00,1176,Completed,Ahmed,new,"1× Heavy Hoodie - White, XL, 2× Cargo Pants - Olive, L",3,,2250
+2025-04-11 00:00:00,1177,Completed,Ahmed,new,"1× Cargo Pants - Olive, M, 1× Heavy Hoodie - White, M",2,,1550
+2026-07-12 00:00:00,1178,Completed,Ahmed,new,"1× Heavy Hoodie - White, L, 1× Classic Oversized Tee - White, M",2,,1200
+2025-06-22 00:00:00,1179,Completed,Ahmed,new,"2× Cargo Pants - White, L, 2× Classic Oversized Tee - Olive, L",4,,2100
+2026-09-30 00:00:00,1180,Completed,Ahmed,new,"1× Cargo Pants - Black, M, 1× Heavy Hoodie - Olive, L",2,,1550
+2025-06-09 00:00:00,1181,Completed,Ahmed,new,"1× Cargo Pants - Black, L, 1× Cargo Pants - White, L",2,,1400
+2025-07-03 00:00:00,1182,Completed,Ahmed,new,"1× Classic Oversized Tee - Black, M, 2× Cargo Pants - White, L",3,,1750
+2026-10-14 00:00:00,1183,Completed,Ahmed,new,"1× Heavy Hoodie - Black, L, 1× Cargo Pants - Black, L",2,,1550
+2026-03-30 00:00:00,1184,Completed,Ahmed,new,"2× Classic Oversized Tee - Black, M, 1× Heavy Hoodie - Black, L",3,,1550
+2025-08-25 00:00:00,1185,Completed,Ahmed,new,"2× Heavy Hoodie - Black, L, 2× Heavy Hoodie - Black, M",4,,3400
+2026-01-11 00:00:00,1186,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, M, 1× Heavy Hoodie - Black, S",2,,1700
+2025-06-26 00:00:00,1187,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, L, 2× Heavy Hoodie - White, M",3,,2550
+2026-02-16 00:00:00,1188,Cancelled,Ahmed,new,"1× Classic Oversized Tee - White, S, 1× Cargo Pants - Black, S",2,,1050
+2025-07-09 00:00:00,1189,Completed,Ahmed,new,"1× Cargo Pants - White, M, 1× Cargo Pants - White, M",2,,1400
+2026-07-30 00:00:00,1190,Completed,Ahmed,new,"1× Classic Oversized Tee - Black, L, 2× Cargo Pants - White, M",3,,1750
+2025-07-07 00:00:00,1191,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, M, 1× Classic Oversized Tee - White, S",2,,700
+2025-10-24 00:00:00,1192,Completed,Ahmed,new,"1× Heavy Hoodie - Black, L, 1× Cargo Pants - White, S",2,,1550
+2025-07-08 00:00:00,1193,Completed,Ahmed,new,"2× Cargo Pants - White, M, 1× Heavy Hoodie - Black, S",3,,2250
+2026-06-17 00:00:00,1194,Completed,Ahmed,new,"1× Classic Oversized Tee - White, M, 1× Cargo Pants - Olive, M",2,,1050
+2025-08-13 00:00:00,1195,Completed,Ahmed,new,"1× Heavy Hoodie - Black, L, 1× Heavy Hoodie - Olive, L",2,,1700
+2026-10-05 00:00:00,1196,Completed,Ahmed,new,"2× Heavy Hoodie - Olive, M, 1× Classic Oversized Tee - Olive, M",3,,2050
+2025-04-18 00:00:00,1197,Completed,Ahmed,new,"1× Classic Oversized Tee - Olive, S, 2× Cargo Pants - Black, M",3,,1750
+2025-12-13 00:00:00,1198,Cancelled,Ahmed,new,"2× Cargo Pants - Black, M, 2× Cargo Pants - Olive, L",4,,2800
+2025-09-27 00:00:00,1199,Completed,Ahmed,new,"1× Heavy Hoodie - Olive, M, 1× Cargo Pants - Olive, M",2,,1550

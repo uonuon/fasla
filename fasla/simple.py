@@ -29,9 +29,11 @@ ALIASES = {
     "size": ["size", "variant_size", "option_size"],
     "color": ["color", "colour", "variant_color", "option_color"],
     "qty": ["qty", "quantity", "lineitem_quantity", "line_item_quantity", "units", "pieces", "count"],
-    "price": ["price", "unit_price", "lineitem_price", "line_item_price", "item_price", "selling_price", "sale_price"],
+    "price": ["price", "unit_price", "lineitem_price", "line_item_price", "item_price", "selling_price", "sale_price",
+              "order_item_price", "product_price"],
     "zone": ["zone", "governorate", "city", "shipping_province_name", "shipping_province", "shipping_city", "region",
-             "area", "state", "province"],
+             "area", "state", "province", "city_shipping", "state_shipping", "shipping_state", "billing_city",
+             "city_billing", "state_billing"],
     "status": ["status", "order_status", "delivery_status", "shipping_status", "fulfillment_status"],
     "courier": ["courier", "shipping_company", "courier_name", "carrier", "shipping_carrier", "shipping_method",
                 "delivery_company"],
@@ -78,6 +80,97 @@ def read_table(data: bytes, filename: str = "") -> tuple[pd.DataFrame, bool]:
     return pd.read_csv(io.StringIO(text), sep=sep, dtype=str, keep_default_na=False), False
 
 
+AR_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹٫", "01234567890123456789.")
+SIZE_WORDS = {
+    "SMALL": "S", "MEDIUM": "M", "MED": "M", "LARGE": "L", "XLARGE": "XL", "X-LARGE": "XL", "X LARGE": "XL",
+    "XXLARGE": "XXL", "XX-LARGE": "XXL", "2X": "XXL", "3X": "3XL", "EXTRA LARGE": "XL", "FREE": "FREE SIZE",
+    "ONE-SIZE": "ONE SIZE", "ONESIZE": "ONE SIZE", "سمول": "S", "سمال": "S", "صغير": "S", "ميديم": "M", "ميديوم": "M",
+    "متوسط": "M", "وسط": "M", "لارج": "L", "كبير": "L", "اكس لارج": "XL", "إكس لارج": "XL", "اكس اكس لارج": "XXL",
+    "٢ اكس لارج": "XXL", "2 اكس لارج": "XXL", "3 اكس لارج": "3XL", "فري سايز": "FREE SIZE", "مقاس واحد": "ONE SIZE",
+}
+
+
+def clean_size(v) -> str | None:
+    t = str(v).translate(AR_DIGITS).strip()
+    if not t or t.lower() in ("nan", "none"):
+        return None
+    t = re.sub(r"^(size|مقاس)\s*[:\-]?\s*", "", t, flags=re.I).strip()
+    u = t.upper()
+    return SIZE_WORDS.get(u, SIZE_WORDS.get(t, u))
+
+
+def parse_dates(s: pd.Series) -> pd.Series:
+    """Dates as brands write them: ISO, Shopify's '+0200', Excel dates, and Egypt's day-first 05/11/2025."""
+    t = s.astype(str).str.translate(AR_DIGITS).str.strip().str.slice(0, 19)
+    if pd.api.types.is_datetime64_any_dtype(s):
+        return pd.to_datetime(s, errors="coerce")
+    num = pd.to_numeric(t, errors="coerce")
+    if num.notna().mean() > 0.8 and num.between(30000, 60000).mean() > 0.8:   # Excel serial days
+        return pd.to_datetime(num, unit="D", origin="1899-12-30", errors="coerce")
+    slash = t.str.match(r"^\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}")
+    if slash.mean() > 0.5:
+        parts = t[slash].str.extract(r"^(\d{1,2})[/.\-](\d{1,2})")
+        a, b = parts[0].astype(int), parts[1].astype(int)
+        dayfirst = not ((b > 12).any() and not (a > 12).any())   # Egypt writes day/month unless the data says otherwise
+        return pd.to_datetime(t.str.replace(r"[.]", "/", regex=True), dayfirst=dayfirst, errors="coerce", format="mixed")
+    return pd.to_datetime(t, errors="coerce", format="mixed")
+
+
+def find_header(raw: pd.DataFrame) -> pd.DataFrame:
+    """Hand-made sheets often have a title and blank rows above the real headers: find the header row."""
+    cols = [str(c) for c in raw.columns]
+    unnamed = sum(c.startswith("Unnamed") or c.strip() == "" or re.fullmatch(r"\d+", c) is not None for c in cols)
+    if unnamed < max(2, len(cols) // 2):
+        return raw
+    head = raw.head(15)
+    for i, row in enumerate(head.itertuples(index=False)):
+        vals = [v for v in row if str(v).strip() not in ("", "nan", "None")]
+        texts = [v for v in vals if isinstance(v, str) and not re.fullmatch(r"[\d.,\s]+", v)]
+        if len(texts) >= max(3, int(0.6 * len(cols))):
+            body = raw.iloc[i + 1:].copy()
+            body.columns = [str(v).strip() if str(v).strip() not in ("", "nan") else f"column_{j + 1}" for j, v in enumerate(row)]
+            return body.reset_index(drop=True)
+    return raw
+
+
+def melt_sizes(df: pd.DataFrame) -> pd.DataFrame:
+    """One column per size (S, M, L…) holding quantities -> one row per size."""
+    size_cols = [c for c in df.columns if clean_size(c) and _is_size(clean_size(c))]
+    if len(size_cols) < 2 or _pick(list(df.columns), "size"):
+        return df
+    rest = [c for c in df.columns if c not in size_cols]
+    long = df.melt(id_vars=rest, value_vars=size_cols, var_name="size", value_name="qty")
+    long["qty"] = pd.to_numeric(long["qty"].astype(str).str.translate(AR_DIGITS), errors="coerce")
+    return long[long["qty"] > 0].reset_index(drop=True)
+
+
+ITEM_RE = re.compile(r"(\d+)\s*[×xX]\s*(.+?)(?=,\s*\d+\s*[×xX]\s|$)")
+
+
+def explode_items(df: pd.DataFrame) -> tuple[pd.DataFrame, bool]:
+    """WooCommerce Analytics puts every item of an order in one cell: '2× Tee - Black, M, 1× Hoodie - Grey, L'."""
+    for c in df.columns:
+        vals = df[c].astype(str)
+        if vals.str.match(r"^\s*\d+\s*[×xX]\s").mean() < 0.6:
+            continue
+        total = next((x for x in ("net_sales", "total_sales", "order_total", "total", "sales") if x in df.columns), None)
+        pieces = next((x for x in ("items_sold", "items", "item_count") if x in df.columns), None)
+        rows = []
+        for idx, cell in vals.items():
+            items = ITEM_RE.findall(cell)
+            n = sum(int(q) for q, _ in items) or 1
+            amount = _num(pd.Series([df.at[idx, total]])).iloc[0] if total else np.nan
+            if pieces:
+                n = _num(pd.Series([df.at[idx, pieces]])).iloc[0] or n
+            for q, name in items:
+                r = df.loc[idx].to_dict()
+                r.update({"_item": name.strip(), "_qty": int(q), "_price": amount / n if n else np.nan})
+                rows.append(r)
+        out = pd.DataFrame(rows).drop(columns=[c] + [x for x in (total, pieces) if x])
+        return out.rename(columns={"_item": "item_name", "_qty": "quantity", "_price": "price"}), True
+    return df, False
+
+
 def _pick(cols: list[str], key: str) -> str | None:
     for a in ALIASES[key]:
         if a in cols:
@@ -86,7 +179,7 @@ def _pick(cols: list[str], key: str) -> str | None:
 
 
 def _is_size(tok: str) -> bool:
-    t = tok.strip().upper()
+    t = str(tok).strip().upper()
     return t in SIZE_ORDER or bool(re.fullmatch(r"\d{1,3}(\.\d)?", t)) or t in {"XXXXL", "4XL", "OS"}
 
 
@@ -96,10 +189,10 @@ def _split_variant(name: str) -> tuple[str, str | None, str | None]:
     if " - " not in name:
         return name, None, None
     base, var = name.rsplit(" - ", 1)
-    toks = [t.strip() for t in var.split("/") if t.strip()]
-    size = next((t for t in toks if _is_size(t)), None)
-    rest = [t for t in toks if t != size]
-    return base.strip(), (rest[0] if rest else None), size
+    toks = [t.strip() for t in re.split(r"[/,]", var) if t.strip()]   # Shopify 'Black / M', WooCommerce 'Black, M'
+    size = next((clean_size(t) for t in toks if _is_size(clean_size(t) or "")), None)
+    toks = [t for t in toks if clean_size(t) != size]
+    return base.strip(), (toks[0] if toks else None), size
 
 
 REFUSED_WORDS = ("refus", "cancel", "reject", "return", "rto", "fail", "void", "refund", "lost")
@@ -108,7 +201,8 @@ DELIVERED_WORDS = ("deliver", "fulfil", "complete", "paid", "success", "done", "
 STATUSES = ("delivered", "refused", "size_exchange")
 
 
-def _known(s: str) -> bool:
+def _known(s) -> bool:
+    s = "" if not isinstance(s, str) else s
     return not s or "exchang" in s or any(w in s for w in REFUSED_WORDS + DELIVERED_WORDS)
 
 
@@ -127,14 +221,17 @@ def _status(raw: str, cancelled: str, financial: str, status_map: dict | None = 
 
 
 def _num(s: pd.Series) -> pd.Series:
-    return pd.to_numeric(s.astype(str).str.replace(r"[^0-9.\-]", "", regex=True).replace("", np.nan), errors="coerce")
+    t = s.astype(str).str.translate(AR_DIGITS).str.replace(r"(?<=\d),(?=\d{3}\b)", "", regex=True)
+    return pd.to_numeric(t.str.replace(r"[^0-9.\-]", "", regex=True).replace("", np.nan), errors="coerce")
 
 
 def normalize(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
+    df = find_header(df.copy())
     df.columns = [_norm(c) or f"column_{i + 1}" for i, c in enumerate(df.columns)]
     df = df.loc[:, ~pd.Index(df.columns).duplicated()]
-    return df.dropna(how="all")
+    df = df.dropna(how="all")
+    df, _ = explode_items(df)
+    return melt_sizes(df)
 
 
 def ai_sample(table: pd.DataFrame, rows: int = 8) -> dict:
@@ -150,7 +247,7 @@ def unknown_statuses(table: pd.DataFrame, columns: dict | None = None, limit: in
     c = (columns or {}).get("status") or _pick(list(df.columns), "status")
     if not c or c not in df.columns:
         return []
-    vals = df[c].astype(str).str.strip().str.lower()
+    vals = df[c].fillna("").astype(str).str.strip().str.lower()
     vals = vals[(vals != "") & (vals != "nan")]
     unk = vals[~vals.map(_known)]
     return unk.value_counts().head(limit).index.tolist()
@@ -176,6 +273,25 @@ def parse_orders(df: pd.DataFrame, max_rows: int = 300_000, columns: dict | None
         if level:
             blanked = df[level].replace({"": np.nan, "nan": np.nan})
             df[level] = blanked.groupby(df[order_col].astype(str)).ffill().fillna("")
+    # WooCommerce "Item Cost" is the selling price per piece; only a price column wins over it
+    if not col["price"] and "item_cost" in cols:
+        col["price"] = "item_cost"
+        if col["cost"] == "item_cost":
+            col["cost"] = None
+    if not col["price"]:
+        line_total = next((c for c in ("order_line_total", "line_total", "lineitem_total", "item_total", "total_price",
+                                       "subtotal", "line_subtotal") if c in cols), None)
+        if line_total:
+            qty = _num(df[col["qty"]]) if col["qty"] else 1
+            df["_unit_price"] = _num(df[line_total]) / qty
+            col["price"] = "_unit_price"
+    courier_file = any(c in cols for c in ("tracking_number", "awb", "tracking_no", "رقم_الشحنة"))
+    names_have_sizes = bool(col["style"]) and df[col["style"]].astype(str).map(lambda v: _split_variant(v)[2]).notna().any()
+    if courier_file and not col["size"] and not names_have_sizes:
+        raise SimpleError([
+            "This looks like a courier export (tracking numbers and cash on delivery). It doesn't say which "
+            "products and sizes were sold. Upload your store's orders export (Shopify, WooCommerce, EasyOrders "
+            "or your own sheet) instead."])
     # Shopify puts the order number in "name": never read it as the product
     errors = [f"We couldn't find a column for the {NAMES[k]}." for k in REQUIRED if not col[k]]
     if errors:
@@ -183,13 +299,13 @@ def parse_orders(df: pd.DataFrame, max_rows: int = 300_000, columns: dict | None
         raise SimpleError(errors, columns_problem=True)
 
     out = pd.DataFrame(index=df.index)
-    out["date"] = pd.to_datetime(df[col["date"]].astype(str).str.slice(0, 19), errors="coerce")
+    out["date"] = parse_dates(df[col["date"]])
     names = df[col["style"]].astype(str).str.strip()
     split = names.map(_split_variant)
     out["style_id"] = [b for b, _, _ in split]
     size_from_name = pd.Series([z for _, _, z in split], index=df.index)
     color_from_name = pd.Series([c for _, c, _ in split], index=df.index)
-    out["size"] = (df[col["size"]].astype(str).str.strip() if col["size"] else size_from_name).replace({"": None, "nan": None})
+    out["size"] = (df[col["size"]].map(clean_size) if col["size"] else size_from_name).replace({"": None, "nan": None})
     out["color"] = (df[col["color"]].astype(str).str.strip() if col["color"] else color_from_name).replace({"": None, "nan": None})
     out["qty"] = _num(df[col["qty"]]) if col["qty"] else 1.0
     out["price"] = _num(df[col["price"]])

@@ -1,0 +1,401 @@
+Order Number,Order Status,Order Date,Item Name,Quantity,Item Cost,City (Shipping)
+1000,Completed,2026-01-26 00:00,"Classic Oversized Tee - White, L",1,350,Assiut
+1000,Completed,2026-10-18 00:00,"Classic Oversized Tee - Olive, M",1,350,Dakahlia
+1001,Completed,2025-11-02 00:00,"Classic Oversized Tee - Olive, M",1,350,Giza
+1001,Completed,2026-10-18 00:00,"Classic Oversized Tee - Olive, M",1,350,Giza
+1002,Completed,2025-07-15 00:00,"Heavy Hoodie - White, S",1,850,Assiut
+1002,Completed,2025-09-02 00:00,"Classic Oversized Tee - Olive, M",1,350,Alexandria
+1003,Completed,2025-05-04 00:00,"Cargo Pants - Black, L",2,700,Assiut
+1003,Completed,2026-01-16 00:00,"Heavy Hoodie - Olive, XL",1,850,Alexandria
+1004,Completed,2025-09-01 00:00,"Cargo Pants - Black, S",1,700,Assiut
+1004,Completed,2026-02-15 00:00,"Cargo Pants - White, M",1,700,Cairo
+1005,Refunded,2025-08-16 00:00,"Heavy Hoodie - Black, XL",2,850,Cairo
+1005,Completed,2025-05-19 00:00,"Cargo Pants - Olive, L",1,700,Alexandria
+1006,Completed,2026-07-22 00:00,"Cargo Pants - White, S",1,700,Alexandria
+1006,Completed,2025-05-06 00:00,"Classic Oversized Tee - Olive, L",2,350,Alexandria
+1007,Completed,2026-02-19 00:00,"Classic Oversized Tee - White, M",1,350,Dakahlia
+1007,Completed,2025-12-20 00:00,"Classic Oversized Tee - Olive, M",2,350,Dakahlia
+1008,Cancelled,2026-06-03 00:00,"Heavy Hoodie - Olive, M",1,850,Dakahlia
+1008,Completed,2025-12-11 00:00,"Cargo Pants - White, XL",2,700,Giza
+1009,Cancelled,2025-08-28 00:00,"Classic Oversized Tee - Black, L",1,350,Dakahlia
+1009,Completed,2025-09-03 00:00,"Heavy Hoodie - White, S",2,850,Assiut
+1010,Cancelled,2026-10-01 00:00,"Heavy Hoodie - Black, L",1,850,Dakahlia
+1010,Completed,2026-09-24 00:00,"Heavy Hoodie - White, M",1,850,Dakahlia
+1011,Completed,2025-05-03 00:00,"Classic Oversized Tee - Black, XL",2,350,Giza
+1011,Completed,2025-04-23 00:00,"Classic Oversized Tee - Black, M",1,350,Alexandria
+1012,Completed,2025-05-12 00:00,"Classic Oversized Tee - Olive, M",1,350,Alexandria
+1012,Completed,2026-06-29 00:00,"Classic Oversized Tee - Black, L",2,350,Dakahlia
+1013,Cancelled,2025-05-27 00:00,"Classic Oversized Tee - Black, L",1,350,Dakahlia
+1013,Completed,2025-08-13 00:00,"Cargo Pants - Black, M",1,700,Giza
+1014,Completed,2025-03-28 00:00,"Cargo Pants - White, XL",1,700,Alexandria
+1014,Completed,2025-08-19 00:00,"Heavy Hoodie - Black, M",1,850,Giza
+1015,Completed,2025-09-16 00:00,"Classic Oversized Tee - White, L",1,350,Giza
+1015,Completed,2026-02-28 00:00,"Cargo Pants - Black, XL",1,700,Dakahlia
+1016,Completed,2026-02-16 00:00,"Heavy Hoodie - Olive, XL",1,850,Cairo
+1016,Refunded,2025-10-19 00:00,"Heavy Hoodie - Black, M",2,850,Assiut
+1017,Cancelled,2025-03-02 00:00,"Heavy Hoodie - Olive, M",1,850,Cairo
+1017,Cancelled,2025-09-21 00:00,"Heavy Hoodie - Black, M",1,850,Cairo
+1018,Completed,2026-04-10 00:00,"Heavy Hoodie - White, L",1,850,Giza
+1018,Completed,2025-07-09 00:00,"Classic Oversized Tee - Black, M",2,350,Giza
+1019,Completed,2026-06-29 00:00,"Cargo Pants - White, S",1,700,Cairo
+1019,Cancelled,2025-06-14 00:00,"Cargo Pants - Olive, XL",2,700,Giza
+1020,Completed,2025-10-03 00:00,"Classic Oversized Tee - White, M",1,350,Assiut
+1020,Completed,2026-09-09 00:00,"Heavy Hoodie - Black, S",1,850,Dakahlia
+1021,Completed,2026-08-12 00:00,"Heavy Hoodie - Olive, S",1,850,Assiut
+1021,Completed,2026-05-25 00:00,"Classic Oversized Tee - Olive, S",1,350,Giza
+1022,Cancelled,2025-07-02 00:00,"Cargo Pants - Black, M",2,700,Cairo
+1022,Completed,2025-04-28 00:00,"Classic Oversized Tee - Black, M",1,350,Assiut
+1023,Completed,2025-03-29 00:00,"Classic Oversized Tee - White, M",1,350,Alexandria
+1023,Cancelled,2026-08-29 00:00,"Heavy Hoodie - Olive, XL",1,850,Assiut
+1024,Completed,2025-09-24 00:00,"Heavy Hoodie - Black, M",2,850,Dakahlia
+1024,Cancelled,2025-11-02 00:00,"Heavy Hoodie - Black, M",1,850,Cairo
+1025,Cancelled,2025-08-06 00:00,"Cargo Pants - Olive, L",1,700,Alexandria
+1025,Completed,2026-06-22 00:00,"Classic Oversized Tee - Olive, XL",2,350,Dakahlia
+1026,Completed,2025-10-16 00:00,"Classic Oversized Tee - Olive, M",2,350,Alexandria
+1026,Completed,2026-03-01 00:00,"Heavy Hoodie - Black, L",1,850,Alexandria
+1027,Refunded,2026-05-26 00:00,"Cargo Pants - Black, M",1,700,Assiut
+1027,Cancelled,2025-06-24 00:00,"Classic Oversized Tee - Black, S",1,350,Cairo
+1028,Completed,2025-09-02 00:00,"Heavy Hoodie - Black, L",1,850,Dakahlia
+1028,Completed,2026-08-10 00:00,"Cargo Pants - White, L",1,700,Alexandria
+1029,Cancelled,2025-09-04 00:00,"Heavy Hoodie - Black, M",1,850,Cairo
+1029,Completed,2025-05-25 00:00,"Cargo Pants - Black, S",1,700,Dakahlia
+1030,Completed,2026-09-18 00:00,"Heavy Hoodie - White, L",1,850,Assiut
+1030,Completed,2025-06-21 00:00,"Classic Oversized Tee - White, S",1,350,Alexandria
+1031,Completed,2026-08-26 00:00,"Classic Oversized Tee - White, M",1,350,Alexandria
+1031,Completed,2025-03-19 00:00,"Heavy Hoodie - Black, S",1,850,Assiut
+1032,Completed,2026-06-01 00:00,"Classic Oversized Tee - Olive, L",2,350,Dakahlia
+1032,Completed,2026-04-07 00:00,"Cargo Pants - White, L",1,700,Alexandria
+1033,Completed,2025-07-22 00:00,"Heavy Hoodie - White, XL",1,850,Cairo
+1033,Completed,2025-11-17 00:00,"Heavy Hoodie - Black, S",2,850,Assiut
+1034,Completed,2025-12-14 00:00,"Cargo Pants - Black, L",1,700,Dakahlia
+1034,Completed,2025-12-01 00:00,"Heavy Hoodie - Black, M",1,850,Assiut
+1035,Completed,2025-04-05 00:00,"Heavy Hoodie - Black, M",1,850,Alexandria
+1035,Completed,2026-06-30 00:00,"Heavy Hoodie - Olive, L",1,850,Assiut
+1036,Completed,2025-06-02 00:00,"Heavy Hoodie - Black, S",1,850,Dakahlia
+1036,Completed,2026-01-06 00:00,"Cargo Pants - Black, S",1,700,Assiut
+1037,Cancelled,2026-01-28 00:00,"Cargo Pants - White, S",1,700,Cairo
+1037,Completed,2026-08-08 00:00,"Cargo Pants - White, L",1,700,Assiut
+1038,Completed,2026-10-04 00:00,"Classic Oversized Tee - Olive, M",1,350,Cairo
+1038,Completed,2025-07-15 00:00,"Cargo Pants - White, XL",2,700,Dakahlia
+1039,Completed,2025-03-20 00:00,"Cargo Pants - Olive, L",2,700,Alexandria
+1039,Completed,2025-05-11 00:00,"Cargo Pants - Olive, L",1,700,Assiut
+1040,Completed,2026-06-29 00:00,"Heavy Hoodie - Black, L",1,850,Giza
+1040,Completed,2026-06-15 00:00,"Heavy Hoodie - White, S",1,850,Cairo
+1041,Completed,2025-09-20 00:00,"Classic Oversized Tee - Olive, S",1,350,Alexandria
+1041,Completed,2025-07-15 00:00,"Classic Oversized Tee - White, S",1,350,Cairo
+1042,Completed,2026-07-15 00:00,"Heavy Hoodie - Olive, M",2,850,Dakahlia
+1042,Completed,2025-06-30 00:00,"Cargo Pants - Black, M",1,700,Dakahlia
+1043,Completed,2026-06-13 00:00,"Classic Oversized Tee - Olive, XL",2,350,Alexandria
+1043,Completed,2025-10-02 00:00,"Classic Oversized Tee - Olive, S",1,350,Alexandria
+1044,Cancelled,2026-08-03 00:00,"Heavy Hoodie - Black, L",1,850,Dakahlia
+1044,Completed,2026-07-11 00:00,"Heavy Hoodie - Black, S",2,850,Dakahlia
+1045,Completed,2025-07-23 00:00,"Heavy Hoodie - White, M",1,850,Alexandria
+1045,Cancelled,2026-02-10 00:00,"Heavy Hoodie - Black, XL",1,850,Cairo
+1046,Completed,2025-12-22 00:00,"Heavy Hoodie - White, S",2,850,Assiut
+1046,Completed,2026-05-13 00:00,"Heavy Hoodie - Black, M",1,850,Alexandria
+1047,Completed,2025-07-31 00:00,"Classic Oversized Tee - White, M",1,350,Giza
+1047,Completed,2026-05-13 00:00,"Classic Oversized Tee - Olive, M",1,350,Cairo
+1048,Completed,2026-04-25 00:00,"Heavy Hoodie - Olive, L",1,850,Dakahlia
+1048,Completed,2026-09-15 00:00,"Classic Oversized Tee - Black, M",1,350,Alexandria
+1049,Completed,2025-11-22 00:00,"Heavy Hoodie - Olive, M",2,850,Assiut
+1049,Cancelled,2025-07-01 00:00,"Classic Oversized Tee - Olive, S",1,350,Assiut
+1050,Completed,2026-07-23 00:00,"Cargo Pants - Black, M",1,700,Dakahlia
+1050,Completed,2026-09-12 00:00,"Classic Oversized Tee - Black, S",1,350,Assiut
+1051,Completed,2025-10-31 00:00,"Heavy Hoodie - White, L",1,850,Cairo
+1051,Completed,2026-04-27 00:00,"Heavy Hoodie - White, L",1,850,Dakahlia
+1052,Completed,2025-05-03 00:00,"Heavy Hoodie - White, M",1,850,Giza
+1052,Completed,2026-08-24 00:00,"Cargo Pants - Black, S",1,700,Dakahlia
+1053,Completed,2026-05-31 00:00,"Heavy Hoodie - White, L",1,850,Giza
+1053,Cancelled,2026-06-28 00:00,"Cargo Pants - White, S",2,700,Assiut
+1054,Refunded,2026-06-03 00:00,"Classic Oversized Tee - Black, M",1,350,Assiut
+1054,Completed,2025-06-20 00:00,"Cargo Pants - Olive, L",2,700,Cairo
+1055,Refunded,2025-04-10 00:00,"Classic Oversized Tee - Black, M",1,350,Alexandria
+1055,Completed,2025-11-13 00:00,"Cargo Pants - Olive, M",1,700,Cairo
+1056,Completed,2026-08-20 00:00,"Cargo Pants - Black, M",1,700,Assiut
+1056,Completed,2026-09-02 00:00,"Heavy Hoodie - White, M",1,850,Giza
+1057,Completed,2025-10-27 00:00,"Cargo Pants - Black, S",2,700,Alexandria
+1057,Completed,2025-09-15 00:00,"Heavy Hoodie - Olive, L",1,850,Alexandria
+1058,Completed,2026-05-09 00:00,"Heavy Hoodie - Black, M",1,850,Dakahlia
+1058,Completed,2026-04-10 00:00,"Classic Oversized Tee - Black, L",1,350,Giza
+1059,Completed,2025-09-22 00:00,"Heavy Hoodie - Black, M",1,850,Alexandria
+1059,Completed,2025-12-28 00:00,"Classic Oversized Tee - Olive, M",1,350,Giza
+1060,Completed,2025-04-27 00:00,"Cargo Pants - Black, XL",1,700,Giza
+1060,Completed,2025-07-24 00:00,"Heavy Hoodie - Black, L",1,850,Dakahlia
+1061,Completed,2026-01-16 00:00,"Cargo Pants - Black, XL",1,700,Alexandria
+1061,Refunded,2026-08-20 00:00,"Cargo Pants - White, S",2,700,Alexandria
+1062,Completed,2026-05-28 00:00,"Classic Oversized Tee - Black, S",1,350,Cairo
+1062,Completed,2025-07-05 00:00,"Cargo Pants - Black, M",1,700,Dakahlia
+1063,Completed,2026-06-28 00:00,"Classic Oversized Tee - White, M",2,350,Giza
+1063,Completed,2026-06-29 00:00,"Classic Oversized Tee - Olive, M",2,350,Cairo
+1064,Completed,2026-06-19 00:00,"Classic Oversized Tee - Black, M",1,350,Assiut
+1064,Completed,2025-12-04 00:00,"Heavy Hoodie - Olive, S",1,850,Alexandria
+1065,Completed,2025-05-06 00:00,"Classic Oversized Tee - Black, S",2,350,Dakahlia
+1065,Cancelled,2026-05-15 00:00,"Heavy Hoodie - Black, XL",1,850,Cairo
+1066,Completed,2026-01-05 00:00,"Cargo Pants - Black, L",1,700,Alexandria
+1066,Completed,2025-05-20 00:00,"Cargo Pants - Black, M",1,700,Giza
+1067,Cancelled,2025-04-04 00:00,"Heavy Hoodie - Olive, M",1,850,Dakahlia
+1067,Completed,2025-05-13 00:00,"Heavy Hoodie - Olive, S",1,850,Dakahlia
+1068,Cancelled,2026-06-01 00:00,"Classic Oversized Tee - Black, S",2,350,Assiut
+1068,Completed,2025-10-27 00:00,"Cargo Pants - Olive, L",1,700,Alexandria
+1069,Completed,2026-10-02 00:00,"Heavy Hoodie - White, M",1,850,Giza
+1069,Completed,2025-09-07 00:00,"Classic Oversized Tee - Black, S",1,350,Alexandria
+1070,Refunded,2025-11-13 00:00,"Classic Oversized Tee - Olive, M",1,350,Dakahlia
+1070,Cancelled,2025-06-13 00:00,"Classic Oversized Tee - White, L",1,350,Dakahlia
+1071,Refunded,2025-04-11 00:00,"Heavy Hoodie - Black, S",1,850,Assiut
+1071,Completed,2026-10-19 00:00,"Classic Oversized Tee - Black, M",1,350,Dakahlia
+1072,Completed,2025-03-07 00:00,"Classic Oversized Tee - Olive, M",1,350,Giza
+1072,Completed,2026-02-12 00:00,"Classic Oversized Tee - Black, M",1,350,Cairo
+1073,Completed,2025-09-25 00:00,"Classic Oversized Tee - White, M",1,350,Giza
+1073,Completed,2025-05-19 00:00,"Classic Oversized Tee - Black, L",2,350,Cairo
+1074,Completed,2026-04-09 00:00,"Cargo Pants - Olive, S",1,700,Giza
+1074,Completed,2025-12-03 00:00,"Heavy Hoodie - White, L",2,850,Cairo
+1075,Completed,2026-10-02 00:00,"Heavy Hoodie - White, M",1,850,Giza
+1075,Completed,2026-04-19 00:00,"Classic Oversized Tee - Black, M",1,350,Dakahlia
+1076,Completed,2025-06-01 00:00,"Heavy Hoodie - Olive, L",2,850,Giza
+1076,Completed,2025-04-22 00:00,"Cargo Pants - Black, L",2,700,Cairo
+1077,Completed,2026-03-15 00:00,"Cargo Pants - Olive, S",1,700,Alexandria
+1077,Completed,2025-08-23 00:00,"Classic Oversized Tee - Black, M",1,350,Alexandria
+1078,Cancelled,2025-04-14 00:00,"Heavy Hoodie - White, S",2,850,Cairo
+1078,Completed,2025-08-12 00:00,"Cargo Pants - Black, L",1,700,Dakahlia
+1079,Completed,2025-10-10 00:00,"Classic Oversized Tee - White, XL",1,350,Dakahlia
+1079,Cancelled,2025-08-01 00:00,"Classic Oversized Tee - Olive, L",1,350,Cairo
+1080,Cancelled,2025-04-09 00:00,"Cargo Pants - White, S",2,700,Assiut
+1080,Completed,2026-01-08 00:00,"Cargo Pants - White, M",1,700,Dakahlia
+1081,Completed,2026-03-12 00:00,"Heavy Hoodie - Olive, M",1,850,Cairo
+1081,Cancelled,2026-07-15 00:00,"Heavy Hoodie - Black, M",2,850,Giza
+1082,Completed,2026-04-14 00:00,"Classic Oversized Tee - Black, S",2,350,Alexandria
+1082,Completed,2026-05-27 00:00,"Cargo Pants - Olive, L",1,700,Giza
+1083,Completed,2026-01-16 00:00,"Cargo Pants - Olive, S",2,700,Giza
+1083,Completed,2025-05-07 00:00,"Cargo Pants - Olive, L",1,700,Giza
+1084,Cancelled,2026-07-17 00:00,"Heavy Hoodie - Black, L",1,850,Cairo
+1084,Completed,2025-11-14 00:00,"Classic Oversized Tee - White, L",1,350,Dakahlia
+1085,Completed,2026-07-28 00:00,"Heavy Hoodie - Black, M",1,850,Alexandria
+1085,Cancelled,2025-09-20 00:00,"Classic Oversized Tee - White, S",1,350,Alexandria
+1086,Refunded,2025-08-20 00:00,"Heavy Hoodie - Black, L",1,850,Alexandria
+1086,Refunded,2026-06-07 00:00,"Cargo Pants - Olive, M",1,700,Alexandria
+1087,Completed,2026-04-08 00:00,"Cargo Pants - White, M",1,700,Assiut
+1087,Cancelled,2026-02-02 00:00,"Classic Oversized Tee - White, M",1,350,Alexandria
+1088,Completed,2025-11-15 00:00,"Heavy Hoodie - Olive, XL",1,850,Cairo
+1088,Completed,2025-10-13 00:00,"Classic Oversized Tee - White, L",2,350,Dakahlia
+1089,Completed,2025-04-18 00:00,"Classic Oversized Tee - White, M",1,350,Cairo
+1089,Completed,2026-10-02 00:00,"Heavy Hoodie - White, S",1,850,Assiut
+1090,Cancelled,2026-10-19 00:00,"Heavy Hoodie - Olive, S",1,850,Assiut
+1090,Completed,2025-08-10 00:00,"Classic Oversized Tee - Black, XL",1,350,Giza
+1091,Cancelled,2025-05-05 00:00,"Cargo Pants - Black, L",1,700,Dakahlia
+1091,Completed,2025-03-12 00:00,"Classic Oversized Tee - Olive, L",1,350,Assiut
+1092,Cancelled,2026-05-29 00:00,"Cargo Pants - Olive, L",1,700,Giza
+1092,Completed,2025-04-15 00:00,"Classic Oversized Tee - Olive, S",1,350,Giza
+1093,Completed,2025-06-16 00:00,"Classic Oversized Tee - Olive, M",1,350,Giza
+1093,Completed,2026-08-13 00:00,"Cargo Pants - Olive, M",2,700,Assiut
+1094,Completed,2026-01-11 00:00,"Classic Oversized Tee - White, L",2,350,Assiut
+1094,Completed,2026-05-22 00:00,"Cargo Pants - White, S",2,700,Giza
+1095,Cancelled,2025-06-16 00:00,"Heavy Hoodie - Black, L",1,850,Alexandria
+1095,Refunded,2025-11-25 00:00,"Cargo Pants - Black, M",2,700,Assiut
+1096,Completed,2025-12-28 00:00,"Cargo Pants - Black, S",1,700,Giza
+1096,Cancelled,2025-10-28 00:00,"Cargo Pants - Black, XL",1,700,Giza
+1097,Cancelled,2026-01-31 00:00,"Cargo Pants - Black, M",2,700,Dakahlia
+1097,Cancelled,2025-03-07 00:00,"Classic Oversized Tee - White, XL",1,350,Assiut
+1098,Completed,2025-10-04 00:00,"Heavy Hoodie - Olive, M",1,850,Giza
+1098,Completed,2025-06-23 00:00,"Classic Oversized Tee - Olive, XL",1,350,Giza
+1099,Completed,2025-04-01 00:00,"Classic Oversized Tee - Black, L",1,350,Cairo
+1099,Completed,2025-05-07 00:00,"Cargo Pants - White, S",1,700,Dakahlia
+1100,Completed,2025-09-27 00:00,"Classic Oversized Tee - Black, S",1,350,Alexandria
+1100,Completed,2025-07-14 00:00,"Classic Oversized Tee - Olive, M",1,350,Alexandria
+1101,Cancelled,2025-03-22 00:00,"Heavy Hoodie - White, XL",1,850,Alexandria
+1101,Completed,2026-07-29 00:00,"Heavy Hoodie - White, L",1,850,Dakahlia
+1102,Completed,2026-08-14 00:00,"Classic Oversized Tee - White, M",1,350,Assiut
+1102,Completed,2025-06-02 00:00,"Cargo Pants - White, S",1,700,Assiut
+1103,Refunded,2025-04-25 00:00,"Classic Oversized Tee - White, M",2,350,Giza
+1103,Cancelled,2026-02-19 00:00,"Cargo Pants - White, M",1,700,Alexandria
+1104,Completed,2025-10-24 00:00,"Heavy Hoodie - Black, S",1,850,Dakahlia
+1104,Cancelled,2026-09-26 00:00,"Classic Oversized Tee - Olive, M",1,350,Dakahlia
+1105,Completed,2025-05-28 00:00,"Heavy Hoodie - Olive, S",1,850,Alexandria
+1105,Completed,2026-09-10 00:00,"Cargo Pants - Black, M",1,700,Dakahlia
+1106,Completed,2025-04-04 00:00,"Heavy Hoodie - Olive, M",1,850,Dakahlia
+1106,Completed,2026-01-26 00:00,"Classic Oversized Tee - White, M",1,350,Assiut
+1107,Completed,2026-02-06 00:00,"Heavy Hoodie - Olive, L",1,850,Assiut
+1107,Completed,2026-01-03 00:00,"Cargo Pants - Olive, S",1,700,Giza
+1108,Refunded,2026-08-17 00:00,"Heavy Hoodie - Black, M",1,850,Alexandria
+1108,Refunded,2025-06-13 00:00,"Classic Oversized Tee - Olive, S",2,350,Giza
+1109,Completed,2026-01-04 00:00,"Cargo Pants - White, M",1,700,Cairo
+1109,Completed,2025-06-18 00:00,"Heavy Hoodie - Black, L",2,850,Cairo
+1110,Completed,2026-05-22 00:00,"Cargo Pants - Black, M",1,700,Dakahlia
+1110,Completed,2025-11-19 00:00,"Cargo Pants - Olive, M",1,700,Dakahlia
+1111,Completed,2026-05-06 00:00,"Classic Oversized Tee - Olive, L",1,350,Giza
+1111,Completed,2026-06-08 00:00,"Heavy Hoodie - White, M",1,850,Dakahlia
+1112,Completed,2026-04-14 00:00,"Cargo Pants - Olive, L",1,700,Dakahlia
+1112,Completed,2025-03-21 00:00,"Cargo Pants - White, M",1,700,Alexandria
+1113,Completed,2026-04-03 00:00,"Heavy Hoodie - Black, S",1,850,Giza
+1113,Completed,2025-09-21 00:00,"Cargo Pants - White, S",2,700,Assiut
+1114,Completed,2026-07-01 00:00,"Cargo Pants - Black, L",1,700,Assiut
+1114,Completed,2026-06-11 00:00,"Classic Oversized Tee - Olive, S",1,350,Assiut
+1115,Completed,2025-04-27 00:00,"Heavy Hoodie - White, M",1,850,Cairo
+1115,Completed,2026-05-05 00:00,"Cargo Pants - Olive, L",1,700,Cairo
+1116,Completed,2026-04-15 00:00,"Cargo Pants - Black, XL",2,700,Dakahlia
+1116,Completed,2025-07-11 00:00,"Classic Oversized Tee - Olive, S",1,350,Giza
+1117,Completed,2026-04-28 00:00,"Heavy Hoodie - White, L",1,850,Dakahlia
+1117,Completed,2025-10-22 00:00,"Heavy Hoodie - Olive, M",1,850,Dakahlia
+1118,Completed,2026-07-07 00:00,"Classic Oversized Tee - Olive, L",1,350,Giza
+1118,Completed,2026-01-23 00:00,"Heavy Hoodie - White, M",1,850,Alexandria
+1119,Completed,2026-01-05 00:00,"Heavy Hoodie - Black, S",1,850,Giza
+1119,Refunded,2026-02-17 00:00,"Cargo Pants - Olive, S",1,700,Giza
+1120,Completed,2025-12-26 00:00,"Heavy Hoodie - Olive, S",1,850,Giza
+1120,Completed,2026-06-06 00:00,"Heavy Hoodie - Black, M",2,850,Assiut
+1121,Completed,2025-06-01 00:00,"Cargo Pants - Olive, L",1,700,Giza
+1121,Completed,2025-10-05 00:00,"Cargo Pants - Black, L",2,700,Cairo
+1122,Completed,2025-11-26 00:00,"Heavy Hoodie - Black, L",2,850,Dakahlia
+1122,Completed,2026-07-09 00:00,"Heavy Hoodie - Black, L",1,850,Dakahlia
+1123,Cancelled,2025-03-07 00:00,"Classic Oversized Tee - White, M",2,350,Alexandria
+1123,Completed,2026-03-19 00:00,"Heavy Hoodie - White, XL",1,850,Giza
+1124,Completed,2025-03-30 00:00,"Classic Oversized Tee - Olive, S",1,350,Cairo
+1124,Completed,2026-07-10 00:00,"Classic Oversized Tee - Black, M",2,350,Giza
+1125,Completed,2026-03-10 00:00,"Heavy Hoodie - White, L",1,850,Alexandria
+1125,Completed,2026-05-07 00:00,"Heavy Hoodie - Olive, S",1,850,Alexandria
+1126,Completed,2026-07-19 00:00,"Heavy Hoodie - White, M",1,850,Assiut
+1126,Completed,2025-09-25 00:00,"Cargo Pants - White, L",1,700,Giza
+1127,Completed,2026-01-01 00:00,"Classic Oversized Tee - Olive, XL",1,350,Cairo
+1127,Completed,2026-09-19 00:00,"Heavy Hoodie - Olive, M",2,850,Alexandria
+1128,Cancelled,2025-04-17 00:00,"Classic Oversized Tee - White, L",1,350,Assiut
+1128,Completed,2026-03-21 00:00,"Cargo Pants - Black, L",1,700,Giza
+1129,Completed,2026-06-12 00:00,"Cargo Pants - Black, S",1,700,Cairo
+1129,Completed,2025-06-12 00:00,"Cargo Pants - Black, M",1,700,Alexandria
+1130,Completed,2025-11-20 00:00,"Heavy Hoodie - Black, M",1,850,Cairo
+1130,Completed,2026-10-14 00:00,"Classic Oversized Tee - White, M",1,350,Cairo
+1131,Completed,2026-05-06 00:00,"Cargo Pants - Olive, XL",2,700,Cairo
+1131,Completed,2026-04-01 00:00,"Cargo Pants - Olive, XL",1,700,Dakahlia
+1132,Completed,2026-09-13 00:00,"Classic Oversized Tee - Black, L",1,350,Giza
+1132,Completed,2026-05-12 00:00,"Classic Oversized Tee - Black, L",1,350,Cairo
+1133,Completed,2025-07-03 00:00,"Classic Oversized Tee - White, S",1,350,Dakahlia
+1133,Completed,2025-09-08 00:00,"Classic Oversized Tee - White, L",1,350,Cairo
+1134,Completed,2026-09-22 00:00,"Cargo Pants - White, M",1,700,Cairo
+1134,Completed,2025-03-12 00:00,"Classic Oversized Tee - Black, L",1,350,Dakahlia
+1135,Completed,2025-08-17 00:00,"Heavy Hoodie - Olive, S",1,850,Assiut
+1135,Refunded,2026-06-25 00:00,"Cargo Pants - Black, S",1,700,Alexandria
+1136,Completed,2025-08-15 00:00,"Cargo Pants - White, M",2,700,Alexandria
+1136,Completed,2026-10-02 00:00,"Heavy Hoodie - White, M",1,850,Assiut
+1137,Completed,2025-03-16 00:00,"Classic Oversized Tee - Olive, L",2,350,Giza
+1137,Completed,2026-03-21 00:00,"Cargo Pants - Black, L",1,700,Cairo
+1138,Cancelled,2025-11-30 00:00,"Heavy Hoodie - Black, M",1,850,Alexandria
+1138,Completed,2026-10-07 00:00,"Classic Oversized Tee - White, XL",2,350,Alexandria
+1139,Completed,2026-09-04 00:00,"Cargo Pants - White, L",1,700,Giza
+1139,Completed,2025-04-28 00:00,"Cargo Pants - White, M",1,700,Alexandria
+1140,Completed,2025-03-10 00:00,"Heavy Hoodie - White, M",1,850,Cairo
+1140,Completed,2026-10-15 00:00,"Cargo Pants - White, L",1,700,Dakahlia
+1141,Completed,2025-09-23 00:00,"Classic Oversized Tee - Black, S",1,350,Alexandria
+1141,Completed,2026-09-29 00:00,"Heavy Hoodie - White, L",1,850,Giza
+1142,Completed,2026-07-19 00:00,"Heavy Hoodie - Black, M",2,850,Cairo
+1142,Completed,2025-04-01 00:00,"Heavy Hoodie - White, M",1,850,Cairo
+1143,Completed,2026-10-01 00:00,"Heavy Hoodie - Olive, M",1,850,Alexandria
+1143,Completed,2026-06-01 00:00,"Cargo Pants - Olive, XL",1,700,Cairo
+1144,Completed,2025-09-02 00:00,"Heavy Hoodie - Black, S",1,850,Assiut
+1144,Completed,2026-06-13 00:00,"Heavy Hoodie - Black, L",2,850,Cairo
+1145,Completed,2025-06-01 00:00,"Heavy Hoodie - White, M",1,850,Assiut
+1145,Completed,2026-06-03 00:00,"Classic Oversized Tee - White, XL",1,350,Giza
+1146,Completed,2025-11-18 00:00,"Heavy Hoodie - Black, XL",1,850,Cairo
+1146,Completed,2026-08-08 00:00,"Cargo Pants - Olive, L",2,700,Cairo
+1147,Completed,2026-01-20 00:00,"Classic Oversized Tee - Black, L",1,350,Assiut
+1147,Completed,2025-06-16 00:00,"Heavy Hoodie - White, M",2,850,Cairo
+1148,Completed,2026-03-24 00:00,"Classic Oversized Tee - White, M",1,350,Cairo
+1148,Cancelled,2025-09-16 00:00,"Classic Oversized Tee - Black, XL",1,350,Cairo
+1149,Cancelled,2026-03-18 00:00,"Cargo Pants - Black, L",1,700,Dakahlia
+1149,Completed,2025-05-16 00:00,"Heavy Hoodie - White, M",1,850,Dakahlia
+1150,Completed,2026-03-10 00:00,"Classic Oversized Tee - White, M",1,350,Giza
+1150,Completed,2026-09-18 00:00,"Classic Oversized Tee - White, L",1,350,Dakahlia
+1151,Cancelled,2025-08-07 00:00,"Classic Oversized Tee - White, M",1,350,Alexandria
+1151,Completed,2025-11-22 00:00,"Heavy Hoodie - Black, M",2,850,Cairo
+1152,Completed,2026-08-08 00:00,"Classic Oversized Tee - Olive, L",1,350,Assiut
+1152,Refunded,2025-12-19 00:00,"Classic Oversized Tee - White, L",1,350,Dakahlia
+1153,Completed,2025-10-31 00:00,"Classic Oversized Tee - Black, M",2,350,Giza
+1153,Completed,2025-12-26 00:00,"Classic Oversized Tee - Olive, S",1,350,Assiut
+1154,Cancelled,2025-03-02 00:00,"Cargo Pants - White, S",2,700,Cairo
+1154,Completed,2025-10-10 00:00,"Heavy Hoodie - Olive, S",1,850,Assiut
+1155,Completed,2025-08-27 00:00,"Classic Oversized Tee - Olive, S",1,350,Assiut
+1155,Completed,2025-12-06 00:00,"Classic Oversized Tee - Black, S",1,350,Assiut
+1156,Completed,2025-03-11 00:00,"Classic Oversized Tee - Olive, L",2,350,Cairo
+1156,Completed,2026-02-19 00:00,"Heavy Hoodie - White, L",2,850,Cairo
+1157,Cancelled,2026-07-02 00:00,"Classic Oversized Tee - Olive, M",1,350,Assiut
+1157,Completed,2026-03-11 00:00,"Classic Oversized Tee - Black, L",1,350,Alexandria
+1158,Completed,2026-05-31 00:00,"Cargo Pants - Black, S",1,700,Alexandria
+1158,Completed,2026-03-26 00:00,"Cargo Pants - Black, M",1,700,Dakahlia
+1159,Completed,2025-03-27 00:00,"Cargo Pants - Olive, S",1,700,Cairo
+1159,Completed,2025-09-03 00:00,"Classic Oversized Tee - Black, M",1,350,Cairo
+1160,Completed,2025-09-16 00:00,"Heavy Hoodie - Black, L",2,850,Assiut
+1160,Completed,2026-05-29 00:00,"Classic Oversized Tee - White, L",1,350,Cairo
+1161,Completed,2026-06-20 00:00,"Heavy Hoodie - Olive, M",1,850,Cairo
+1161,Completed,2026-04-20 00:00,"Classic Oversized Tee - Olive, M",1,350,Giza
+1162,Completed,2026-06-17 00:00,"Cargo Pants - White, S",1,700,Dakahlia
+1162,Completed,2026-08-21 00:00,"Classic Oversized Tee - White, XL",1,350,Alexandria
+1163,Cancelled,2025-11-02 00:00,"Heavy Hoodie - Olive, M",1,850,Dakahlia
+1163,Cancelled,2025-04-24 00:00,"Heavy Hoodie - Olive, S",1,850,Giza
+1164,Completed,2025-03-12 00:00,"Heavy Hoodie - Black, M",1,850,Alexandria
+1164,Completed,2026-07-30 00:00,"Cargo Pants - Black, M",2,700,Dakahlia
+1165,Cancelled,2026-06-08 00:00,"Cargo Pants - Black, L",1,700,Cairo
+1165,Completed,2025-11-28 00:00,"Cargo Pants - Olive, M",1,700,Assiut
+1166,Completed,2025-07-03 00:00,"Cargo Pants - Black, M",1,700,Alexandria
+1166,Completed,2026-02-19 00:00,"Cargo Pants - Black, S",1,700,Cairo
+1167,Cancelled,2026-08-29 00:00,"Classic Oversized Tee - White, S",1,350,Alexandria
+1167,Completed,2026-10-13 00:00,"Heavy Hoodie - White, M",1,850,Assiut
+1168,Completed,2026-06-09 00:00,"Cargo Pants - Olive, M",2,700,Giza
+1168,Cancelled,2026-03-11 00:00,"Heavy Hoodie - Olive, M",2,850,Dakahlia
+1169,Completed,2025-04-01 00:00,"Classic Oversized Tee - White, M",2,350,Assiut
+1169,Completed,2026-02-25 00:00,"Classic Oversized Tee - Black, M",1,350,Dakahlia
+1170,Completed,2025-10-08 00:00,"Heavy Hoodie - Black, L",1,850,Assiut
+1170,Completed,2026-02-20 00:00,"Heavy Hoodie - Olive, S",2,850,Dakahlia
+1171,Completed,2025-06-20 00:00,"Cargo Pants - Black, XL",1,700,Dakahlia
+1171,Completed,2026-02-24 00:00,"Classic Oversized Tee - Olive, M",1,350,Assiut
+1172,Cancelled,2026-06-30 00:00,"Heavy Hoodie - Olive, L",1,850,Dakahlia
+1172,Refunded,2025-03-05 00:00,"Heavy Hoodie - Olive, M",2,850,Dakahlia
+1173,Completed,2026-10-07 00:00,"Classic Oversized Tee - White, L",1,350,Assiut
+1173,Completed,2026-03-24 00:00,"Heavy Hoodie - Olive, M",1,850,Alexandria
+1174,Completed,2026-08-21 00:00,"Cargo Pants - Olive, M",1,700,Cairo
+1174,Completed,2026-07-25 00:00,"Heavy Hoodie - White, M",1,850,Giza
+1175,Refunded,2026-03-22 00:00,"Cargo Pants - Black, S",1,700,Alexandria
+1175,Completed,2025-11-04 00:00,"Heavy Hoodie - Black, XL",1,850,Cairo
+1176,Completed,2026-09-30 00:00,"Heavy Hoodie - White, XL",1,850,Assiut
+1176,Completed,2026-05-22 00:00,"Cargo Pants - Olive, L",2,700,Dakahlia
+1177,Completed,2025-04-11 00:00,"Cargo Pants - Olive, M",1,700,Cairo
+1177,Refunded,2025-06-10 00:00,"Heavy Hoodie - White, M",1,850,Giza
+1178,Completed,2026-07-12 00:00,"Heavy Hoodie - White, L",1,850,Assiut
+1178,Completed,2025-06-03 00:00,"Classic Oversized Tee - White, M",1,350,Alexandria
+1179,Completed,2025-06-22 00:00,"Cargo Pants - White, L",2,700,Giza
+1179,Completed,2026-08-06 00:00,"Classic Oversized Tee - Olive, L",2,350,Giza
+1180,Completed,2026-09-30 00:00,"Cargo Pants - Black, M",1,700,Dakahlia
+1180,Completed,2025-03-03 00:00,"Heavy Hoodie - Olive, L",1,850,Alexandria
+1181,Completed,2025-06-09 00:00,"Cargo Pants - Black, L",1,700,Giza
+1181,Completed,2026-09-18 00:00,"Cargo Pants - White, L",1,700,Assiut
+1182,Completed,2025-07-03 00:00,"Classic Oversized Tee - Black, M",1,350,Cairo
+1182,Completed,2025-08-22 00:00,"Cargo Pants - White, L",2,700,Cairo
+1183,Completed,2026-10-14 00:00,"Heavy Hoodie - Black, L",1,850,Alexandria
+1183,Completed,2025-11-29 00:00,"Cargo Pants - Black, L",1,700,Alexandria
+1184,Completed,2026-03-30 00:00,"Classic Oversized Tee - Black, M",2,350,Assiut
+1184,Completed,2025-04-14 00:00,"Heavy Hoodie - Black, L",1,850,Giza
+1185,Completed,2025-08-25 00:00,"Heavy Hoodie - Black, L",2,850,Alexandria
+1185,Completed,2025-11-14 00:00,"Heavy Hoodie - Black, M",2,850,Assiut
+1186,Completed,2026-01-11 00:00,"Heavy Hoodie - Olive, M",1,850,Cairo
+1186,Completed,2026-03-02 00:00,"Heavy Hoodie - Black, S",1,850,Dakahlia
+1187,Completed,2025-06-26 00:00,"Heavy Hoodie - Olive, L",1,850,Dakahlia
+1187,Completed,2025-07-05 00:00,"Heavy Hoodie - White, M",2,850,Giza
+1188,Cancelled,2026-02-16 00:00,"Classic Oversized Tee - White, S",1,350,Alexandria
+1188,Cancelled,2025-11-03 00:00,"Cargo Pants - Black, S",1,700,Assiut
+1189,Completed,2025-07-09 00:00,"Cargo Pants - White, M",1,700,Giza
+1189,Refunded,2025-10-08 00:00,"Cargo Pants - White, M",1,700,Alexandria
+1190,Completed,2026-07-30 00:00,"Classic Oversized Tee - Black, L",1,350,Alexandria
+1190,Completed,2026-05-25 00:00,"Cargo Pants - White, M",2,700,Assiut
+1191,Completed,2025-07-07 00:00,"Classic Oversized Tee - Olive, M",1,350,Dakahlia
+1191,Completed,2026-10-03 00:00,"Classic Oversized Tee - White, S",1,350,Giza
+1192,Completed,2025-10-24 00:00,"Heavy Hoodie - Black, L",1,850,Cairo
+1192,Completed,2026-03-06 00:00,"Cargo Pants - White, S",1,700,Cairo
+1193,Completed,2025-07-08 00:00,"Cargo Pants - White, M",2,700,Dakahlia
+1193,Completed,2025-07-14 00:00,"Heavy Hoodie - Black, S",1,850,Dakahlia
+1194,Completed,2026-06-17 00:00,"Classic Oversized Tee - White, M",1,350,Giza
+1194,Completed,2025-12-03 00:00,"Cargo Pants - Olive, M",1,700,Dakahlia
+1195,Completed,2025-08-13 00:00,"Heavy Hoodie - Black, L",1,850,Dakahlia
+1195,Cancelled,2026-09-17 00:00,"Heavy Hoodie - Olive, L",1,850,Assiut
+1196,Completed,2026-10-05 00:00,"Heavy Hoodie - Olive, M",2,850,Assiut
+1196,Completed,2025-03-01 00:00,"Classic Oversized Tee - Olive, M",1,350,Assiut
+1197,Completed,2025-04-18 00:00,"Classic Oversized Tee - Olive, S",1,350,Giza
+1197,Cancelled,2026-02-17 00:00,"Cargo Pants - Black, M",2,700,Assiut
+1198,Cancelled,2025-12-13 00:00,"Cargo Pants - Black, M",2,700,Dakahlia
+1198,Completed,2026-07-29 00:00,"Cargo Pants - Olive, L",2,700,Assiut
+1199,Completed,2025-09-27 00:00,"Heavy Hoodie - Olive, M",1,850,Dakahlia
+1199,Completed,2025-04-14 00:00,"Cargo Pants - Olive, M",1,700,Giza
