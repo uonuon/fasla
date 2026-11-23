@@ -199,10 +199,10 @@ SHOP_QUERY = """{ shop { name currencyCode ianaTimezone } currentAppInstallation
 
 ORDERS_QUERY = """
 query Orders($q: String!, $after: String) {
-  orders(first: 100, after: $after, query: $q, sortKey: CREATED_AT) {
+  orders(first: 100, after: $after, query: $q, sortKey: PROCESSED_AT) {
     pageInfo { hasNextPage endCursor }
     nodes {
-      name createdAt cancelledAt displayFulfillmentStatus
+      name createdAt processedAt cancelledAt displayFulfillmentStatus
       lineItems(first: 100) {
         nodes {
           title quantity currentQuantity sku variantTitle
@@ -253,7 +253,7 @@ def order_rows(orders: list[dict]) -> list[dict]:
             if removed >= qty and not o.get("cancelledAt"):
                 status = "returned"
             rows.append(dict(
-                order_id=o.get("name", ""), date=str(o.get("createdAt", ""))[:10],
+                order_id=o.get("name", ""), date=str(o.get("processedAt") or o.get("createdAt") or "")[:10],
                 style=prod.get("title") or li.get("title") or "", size=size, color=color, qty=qty,
                 price=((li.get("originalUnitPriceSet") or {}).get("shopMoney") or {}).get("amount", ""),
                 cost=cost or "", category=prod.get("productType") or "", status=status,
@@ -262,7 +262,8 @@ def order_rows(orders: list[dict]) -> list[dict]:
 
 
 def fetch_orders(admin: Admin, since: date, max_orders: int = 20000) -> list[dict]:
-    q = f"created_at:>={since.isoformat()}"
+    # processed_at, not created_at: orders imported from another platform keep their real date there.
+    q = f"processed_at:>={since.isoformat()}"
     out, after = [], None
     while True:
         d = admin.query(ORDERS_QUERY, {"q": q, "after": after})["orders"]

@@ -1,0 +1,31 @@
+name: Seed Shopify dev store
+
+# Manual only. Fills a development store with a year of clothing sales for testing Fasla.
+# Needs the repository secret SEED_CLIENT_SECRET (the "Fasla Seeder" app's client secret).
+on:
+  workflow_dispatch:
+    inputs:
+      shop:
+        description: Dev store domain
+        default: fasla-test.myshopify.com
+      orders:
+        description: Number of orders (dev stores take 5 a minute)
+        default: "400"
+
+jobs:
+  seed:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    concurrency: seed-${{ inputs.shop }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "httpx>=0.27,<1"
+      - name: Seed
+        env:
+          SHOP: ${{ inputs.shop }}
+          SEED_CLIENT_ID: 0ac5ef28c96843653ffdf3094bd0a231
+          SEED_CLIENT_SECRET: ${{ secrets.SEED_CLIENT_SECRET }}
+        run: python scripts/seed_shopify.py --orders "${{ inputs.orders }}"
