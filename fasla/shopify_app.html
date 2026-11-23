@@ -288,15 +288,31 @@ $("run").onclick = async () => {
   $("run").disabled = true; $("runMsg").textContent = "Planning… about a minute.";
   try {
     await call(`/api/plans/${planId}/run`, { method: "POST", body: JSON.stringify({ settings }) });
-    for (let i = 0; i < 90; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      const p = await call(`/api/plans/${planId}`);
-      if (p.status === "done") { showPlan(p); $("runMsg").textContent = ""; break; }
-      if (p.status === "failed") { throw new Error(p.error || "Planning failed"); }
-    }
+    await waitForPlan(planId);
   } catch (e) { $("runMsg").innerHTML = `<span class="err">${e.message}</span>`; }
   $("run").disabled = false;
 };
+
+// Poll until the plan is ready. Each check has its own time limit, and coming back to the tab checks at once:
+// browsers slow timers in background tabs, and a session token request can stall there, which left the page
+// on "Planning…" after the plan was done.
+function withTimeout(p, ms) { return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]); }
+async function waitForPlan(pid) {
+  const t0 = Date.now();
+  let wake = null;
+  const onVis = () => { if (!document.hidden && wake) wake(); };
+  document.addEventListener("visibilitychange", onVis);
+  try {
+    while (Date.now() - t0 < 6 * 60 * 1000) {
+      await new Promise((r) => { wake = r; setTimeout(r, 3000); });
+      let p;
+      try { p = await withTimeout(call(`/api/plans/${pid}`), 15000); } catch (e) { if (e.message === "timeout") continue; throw e; }
+      if (p.status === "done") { showPlan(p); $("runMsg").textContent = ""; return; }
+      if (p.status === "failed") throw new Error(p.error || "Planning failed");
+    }
+    throw new Error("This is taking longer than usual. Reload the page in a minute to see your plan.");
+  } finally { document.removeEventListener("visibilitychange", onVis); }
+}
 
 function showPlan(p) {
   const v = p.view; if (!v) return;
@@ -305,7 +321,8 @@ function showPlan(p) {
     ["Cash needed", `${fmt(base.cash_used)} ${currency}`]].map(([k, x]) => `<div class="kpi"><span class="muted small">${k}</span><b>${x}</b></div>`).join("");
   const ck = v.check;
   $("accuracy").textContent = ck ? `Tested on your store: forecasting ${ck.season} from the months before them, Fasla was `
-    + `${Math.round(ck.style_error * 100)}% off per style, vs ${Math.round(ck.repeat_last_error * 100)}% for repeating the months just before.` : "";
+    + `${Math.round(ck.style_error * 100)}% off per style, vs ${Math.round(ck.repeat_last_error * 100)}% for repeating the months just before.`
+    + (ck.units_per_style != null && ck.units_per_style < 30 ? ` With about ${Math.round(ck.units_per_style)} pieces per style in a period, chance moves both numbers a lot; they get steadier as you sell more.` : "") : "";
   const rows = [...(base.style || [])].sort((a, b) => b.planned - a.planned);
   $("plan").querySelector("tbody").innerHTML = rows.map((r) => { const m = meta[r.id] || {};
     const range = m.f_p10 != null ? `${fmt(m.f_p10)}–${fmt(m.f_p90)}` : "–";

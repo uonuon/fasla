@@ -116,7 +116,7 @@ export type PlanView = {
     soldout_inferred?: number;
     production_known?: boolean;
   };
-  check?: { kind?: "window"; season: string; styles: number; style_error: number; repeat_last_error: number; total_bias: number } | null;
+  check?: { kind?: "window"; season: string; styles: number; tests?: number; units_per_style?: number; style_error: number; repeat_last_error: number; total_bias: number } | null;
 };
 
 export type Plan = PlanSummary & { brand_name: string; settings: Settings; checks: Checks | null; view?: PlanView };
