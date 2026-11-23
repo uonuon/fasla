@@ -227,3 +227,12 @@ def test_shopify_off_without_keys(tmp_path):
         assert c.post("/webhooks/shopify", content=b"{}").status_code == 404
     for m in [m for m in sys.modules if m.startswith("fasla")]:
         del sys.modules[m]
+
+
+def test_order_rows_prefer_processed_at():
+    """Orders imported from another platform keep their real date in processedAt."""
+    from fasla.shopify import order_rows
+    o = {"name": "#1", "createdAt": "2026-11-20T10:00:00Z", "processedAt": "2026-03-15T10:00:00Z",
+         "lineItems": {"nodes": [{"title": "Tee", "quantity": 1, "currentQuantity": 1, "variantTitle": "M / Black",
+                                  "originalUnitPriceSet": {"shopMoney": {"amount": "450"}}}]}}
+    assert order_rows([o])[0]["date"] == "2026-03-15"
