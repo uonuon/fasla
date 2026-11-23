@@ -128,6 +128,11 @@ function Brands({ email }: { email: string }) {
           })}
         </div>
 
+        <div className="note plain">
+          Make food, oils or beauty products in batches?{" "}
+          <Link href="/batch/">Plan your next batch</Link>: how many jars or bottles of each product to make this month.
+        </div>
+
         <form className="card" onSubmit={create} aria-labelledby="new-brand">
           <h2 id="new-brand" style={{ fontSize: 19, marginBottom: 12 }}>
             Add a brand
