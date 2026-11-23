@@ -23,6 +23,7 @@ from .auth import User, check_pw, current_user, dev_token, hash_pw
 from .config import ROOT, Settings, get_settings
 from .db import brands, consents, dev_users, events, init_private, make_engine, plans, shopify_shops
 from . import shopify as shp
+from . import shopify_batch as shb
 from . import ai
 from .ai_context import plan_context
 from .queue import make_queue
@@ -328,7 +329,39 @@ def shopify_import(body: ImportIn, request: Request, user: User = Depends(curren
     res = _plan_from_bytes(b[0], user, data, f"Shopify orders since {since.isoformat()}.csv", "csv")
     if isinstance(res, dict) and body.days > 70 and shp.only_recent_window(orders):
         res["checks"].setdefault("warnings", []).insert(0, shp.WINDOW_WARNING)
+    if isinstance(res, dict):
+        # clothing or batch (food, oils, cosmetics): a guess the owner can switch in the app
+        res["mode"] = shb.detect_mode(rows)
+        res["batch_products"] = shb.products_for_app(data)
     return res
+
+
+class ShopifyBatchIn(BaseModel):
+    plan_id: uuid.UUID
+    products: dict = {}
+    budget: float | None = Field(default=None, ge=0, le=1e10)
+    months_ahead: int = Field(default=4, ge=1, le=12)
+
+
+@app.post("/api/shopify/batch-plan")
+def shopify_batch_plan(body: ShopifyBatchIn, request: Request, user: User = Depends(current_user)):
+    """Batch mode: plan the next batches from the orders this store already imported (same stored file)."""
+    shop = _shopify_user(request, user)
+    with engine.connect() as con:
+        r = _plan(con, body.plan_id, user)
+        if _shop_tier(request, shop) == "free" and _free_limit_reached(con, user, body.plan_id):
+            raise HTTPException(402, "The free plan includes one plan a month. Upgrade to Starter for unlimited plans.")
+    try:
+        res = shb.plan_from_csv(storage.get(r["input_path"]), body.products, body.budget, body.months_ahead)
+    except ValueError as e:
+        track("batch_failed", user.id, error=str(e)[:200], shopify=True)
+        raise HTTPException(422, str(e))
+    plan = res["plan"]
+    with engine.begin() as con:   # counts toward the free plan's one a month, like a clothing plan
+        con.execute(update(plans).where(plans.c.id == body.plan_id).values(finished_at=datetime.now(timezone.utc)))
+    track("batch_plan", user.id, skus=len(plan), make=int(plan.make.sum()), cost=round(res["total_cost"]), shopify=True)
+    return {"start": str(res["start"]), "total_cost": round(res["total_cost"]), "notes": res["notes"],
+            "plan": _records(plan.round(3)), "batches": _records(res["batches"].round(1))}
 
 
 @app.post("/webhooks/shopify")

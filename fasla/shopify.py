@@ -239,7 +239,7 @@ def _is_color_option(n: str) -> bool:
 def _options(variant: dict | None, variant_title: str | None) -> tuple[str, str]:
     """Size and colour of a line. Products with no size option (bags, scarves, one-size pieces) get "One size"
     instead of being dropped: they are part of the store's sales and cash too."""
-    size = color = ""
+    size = color = other = ""
     opts = (variant or {}).get("selectedOptions") or []
     for o in opts:
         n = str(o.get("name", "")).strip().lower()
@@ -247,6 +247,9 @@ def _options(variant: dict | None, variant_title: str | None) -> tuple[str, str]
             size = str(o.get("value", ""))
         elif _is_color_option(n) and not color:
             color = str(o.get("value", ""))
+        elif not other and n != "title" and str(o.get("value", "")) != "Default Title":
+            other = str(o.get("value", ""))   # flavour, scent, material...: the variant when there is no colour
+    color = color or other
     if not opts and not size and not color and variant_title and variant_title != "Default Title":
         # no option names (variant deleted since): "M / Black" style titles
         parts = [p.strip() for p in variant_title.split("/")]

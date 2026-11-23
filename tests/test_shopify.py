@@ -289,3 +289,74 @@ def test_free_plan_limits(app_env):
     assert c.post(f"/api/plans/{pid2}/run", json={"settings": {}}, headers=H()).status_code == 200
     assert _wait(c, pid2)["status"] == "done"
     assert c.get(f"/api/plans/{pid2}/report", headers=H()).status_code == 200
+
+
+def food_page(n_orders=300, seed=2):
+    """A jar brand: flavours as the variant option, pack size as the 'Size' option, no cost on some products."""
+    import random
+    rnd = random.Random(seed)
+    items = [("Bone Broth", "Broths", 320, 140, ["Plain", "Veggie"], "500 ml"),
+             ("Garlic Honey", "Ferments", 280, None, ["-"], "250 g"),
+             ("Fig & Olive Jam", "Jams", 210, 80, ["-"], "300 g")]
+    start = date.today() - timedelta(days=360)
+    nodes = []
+    for i in range(n_orders):
+        d = start + timedelta(days=int(i * 360 / n_orders))
+        title, ptype, price, cost, flavours, pack = rnd.choice(items)
+        fl = rnd.choice(flavours)
+        opts = [{"name": "Size", "value": pack}] + ([{"name": "Flavour", "value": fl}] if fl != "-" else [])
+        inv = {"tracked": True, "unitCost": {"amount": str(cost)} if cost else None}
+        li = {"title": title, "quantity": rnd.choice([1, 1, 2, 3]), "currentQuantity": None, "sku": None,
+              "variantTitle": f"{pack} / {fl}", "originalUnitPriceSet": {"shopMoney": {"amount": str(price)}},
+              "product": {"id": f"gid://shopify/Product/{title}", "title": title, "productType": ptype},
+              "variant": {"selectedOptions": opts, "inventoryQuantity": rnd.randint(0, 40), "inventoryItem": inv}}
+        nodes.append({"name": f"#{2000 + i}", "createdAt": f"{d.isoformat()}T10:00:00Z", "cancelledAt": None,
+                      "displayFulfillmentStatus": "FULFILLED", "lineItems": {"nodes": [li]}})
+    return nodes
+
+
+def test_detect_mode_clothing_vs_batch():
+    from fasla import shopify_batch as shb
+    from fasla.shopify import order_rows
+    assert shb.detect_mode(order_rows(orders_page()))["mode"] == "clothing"
+    assert shb.detect_mode(order_rows(food_page()))["mode"] == "batch"
+
+
+def test_batch_mode_flow(app_env):
+    c, fake, main = app_env
+    fake.nodes = food_page()
+    fake.subs = [{"name": "Starter", "status": "ACTIVE", "test": True}]
+    c.get("/api/shopify/session", headers=H())
+    r = c.post("/api/shopify/import", json={"days": 365}, headers=H())
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["mode"]["mode"] == "batch"
+    names = {p["product"] for p in body["batch_products"]}
+    assert names == {"Bone Broth", "Garlic Honey", "Fig & Olive Jam"}
+    broth = [p for p in body["batch_products"] if p["product"] == "Bone Broth"]
+    assert {p["variant"] for p in broth} == {"Plain", "Veggie"} and all(p["pack"] == "500 ml" for p in broth)
+    pid = body["plan_id"]
+    # Garlic Honey has no cost in Shopify: the plan asks for it
+    r = c.post("/api/shopify/batch-plan", json={"plan_id": pid, "products": {}}, headers=H())
+    assert r.status_code == 422 and "Garlic Honey" in r.json()["detail"]
+    r = c.post("/api/shopify/batch-plan", headers=H(), json={"plan_id": pid, "products": {
+        "Garlic Honey": {"cost": 120, "lead_time_days": 30, "make_every_days": 30},
+        "Bone Broth": {"batch_multiple": 30, "shelf_life_months": 4, "lead_time_days": 1, "make_every_days": 10}}})
+    assert r.status_code == 200, r.text
+    plan = {(x["product"], x["variant"]): x for x in r.json()["plan"]}
+    assert all(x["make"] % 30 == 0 for k, x in plan.items() if k[0] == "Bone Broth")   # whole pots of 30
+    assert sum(x["make"] for x in plan.values()) > 0
+    # the clothing path is untouched for a clothing store
+    fake.nodes = orders_page()
+    assert c.post("/api/shopify/import", json={"days": 365}, headers=H()).json()["mode"]["mode"] == "clothing"
+
+
+def test_batch_inputs_are_checked():
+    import pytest as _pt
+    from fasla import shopify_batch as shb
+    assert shb.clean_inputs({"Jam": {"batch_multiple": 0, "lead_time_days": 9999}})["Jam"] == \
+        {"batch_multiple": 1, "lead_time_days": 365}
+    with _pt.raises(ValueError):
+        shb.clean_inputs({"Jam": {"cost": "abc"}})
+    with _pt.raises(ValueError):
+        shb.clean_inputs({"Jam": {"cost": 0}})

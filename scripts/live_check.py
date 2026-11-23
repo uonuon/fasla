@@ -66,6 +66,11 @@ def store_checks() -> None:
     stock = sum(r.get("stock", 0) for r in v3["variants"][v3["base"]]["style"])
     check(stock > 0, f"plan counts stock on hand ({stock})")
     check(v3.get("check") is not None, "accuracy check produced")
+    from fasla import shopify_batch as shb
+    mode = shb.detect_mode(rows)
+    check(mode["mode"] == "clothing", f"test store detected as clothing ({mode['sized_share']:.0%} sized)")
+    bres = shb.plan_from_csv(data, {}, months_ahead=4)
+    check(len(bres["plan"]) > 0 and bres["plan"].make.ge(0).all(), f"batch mode runs on the same data ({len(bres['plan'])} rows)")
     if v3.get("check"):
         c = v3["check"]
         print(f"     accuracy: {c['style_error']:.0%} off per style vs {c['repeat_last_error']:.0%} repeating")
