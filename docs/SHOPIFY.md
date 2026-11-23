@@ -29,8 +29,9 @@ The Shopify app stays off until `SHOPIFY_API_KEY` and `SHOPIFY_API_SECRET` are s
    scopes and webhooks.
 7. **Protected customer data:** in the Dev Dashboard, request access to **level 1** customer data
    (orders). Fasla does not need names, emails, phones or addresses (level 2).
-8. **`read_all_orders`:** request it in the Partner dashboard; without it Shopify only returns the last 60
-   days of orders, which is too short for a season plan.
+8. **`read_all_orders`:** Shopify rejects it in the app's scope list until it's approved. Request it in the
+   Dev Dashboard; without it Shopify only returns the last 60 days of orders, which is too short for a season plan.
+   Done so far (23 Nov): dev store `fasla-test` (Advanced plan, generated test data) and app "Fasla" (version fasla-1).
 9. **Install on the development store**, add test orders (or import a CSV of products and orders), open Fasla.
 10. **Pricing:** set up plans in the Partner dashboard (Shopify-managed pricing). Suggested: Free (up to
     300 orders a month, one plan per season), Growth $29/month, Pro $79/month.
