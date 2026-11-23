@@ -180,6 +180,50 @@ def plan_orders(variants: list[dict], n: int, seed: int = 7) -> list[dict]:
     return orders
 
 
+def set_stock(s: Shop, variants: list[dict], orders: list[dict]) -> None:
+    """Give every seeded variant a believable stock level: about 0.3-2.5 months of its recent sales, a few
+    best sellers sold out (0), slow sizes a handful. Tracked, so Fasla reads it. Safe to repeat (absolute values)."""
+    rnd = random.Random(11)
+    recent_from = max(o["at"] for o in orders) - timedelta(days=60)
+    rate = {}
+    for o in orders:
+        if o["at"] >= recent_from and o["fate"] == "ok":
+            for l in o["lines"]:
+                rate[l["variant"]["id"]] = rate.get(l["variant"]["id"], 0) + l["qty"] / 2   # per month
+    top = sorted(rate, key=rate.get, reverse=True)[: max(1, len(rate) // 8)]
+    loc = s.q("query{ locations(first: 1){ nodes{ id } } }")["locations"]["nodes"][0]["id"]
+    ids = [v["id"] for v in variants]
+    inv = {}
+    for i in range(0, len(ids), 50):
+        for n in s.q("query($ids:[ID!]!){ nodes(ids:$ids){ ... on ProductVariant { id inventoryItem { id tracked } } } }",
+                     {"ids": ids[i:i + 50]})["nodes"]:
+            inv[n["id"]] = n["inventoryItem"]
+    for vid, item in inv.items():
+        if not item["tracked"]:
+            e = s.q("""mutation($id: ID!){ inventoryItemUpdate(id: $id, input: {tracked: true}){
+                userErrors { message } } }""", {"id": item["id"]})["inventoryItemUpdate"]["userErrors"]
+            if e:
+                log("tracking failed:", e)
+    qty = []
+    for vid, item in inv.items():
+        if vid in top and rnd.random() < 0.6:
+            q = 0
+        elif vid in rate:
+            q = int(round(rate[vid] * rnd.uniform(0.3, 2.5)))
+        else:
+            q = rnd.randint(1, 6)
+        qty.append({"inventoryItemId": item["id"], "locationId": loc, "quantity": q, "changeFromQuantity": None})
+    for i in range(0, len(qty), 100):
+        r = s.q("""mutation($input: InventorySetQuantitiesInput!, $key: String!){
+            inventorySetQuantities(input: $input) @idempotent(key: $key){ userErrors { code message } } }""",
+                {"input": {"name": "available", "reason": "correction", "quantities": qty[i:i + 100]},
+                 "key": f"fasla-seed-stock-{datetime.now().strftime('%Y%m%d%H%M%S')}-{i}"})
+        if r["inventorySetQuantities"]["userErrors"]:
+            log("stock failed:", r["inventorySetQuantities"]["userErrors"])
+    log(f"stock set on {len(qty)} variants, {sum(1 for x in qty if x['quantity'] == 0)} at zero,",
+        f"{sum(x['quantity'] for x in qty)} pieces in all")
+
+
 def count_seeded(s: Shop) -> int:
     return s.q('query{ ordersCount(query:"tag:%s", limit: null){ count } }' % TAG)["ordersCount"]["count"]
 
@@ -258,6 +302,7 @@ def main():
         if oid and (o["n"] + 1) % 10 == 0:
             log(f"{o['n'] + 1}/{len(orders)} orders ({o['at'].date()})")
     log("done:", count_seeded(s), "seeded orders")
+    set_stock(s, variants, orders)
 
 
 if __name__ == "__main__":
