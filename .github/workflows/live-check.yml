@@ -1,0 +1,30 @@
+name: Live check (Shopify test store + site)
+
+# Every night, and on demand: real orders from the Shopify test store through Fasla's own code, plus the live
+# site's key pages. A failure emails the repository owner (GitHub's default for failed scheduled runs).
+on:
+  schedule:
+    - cron: "17 3 * * *"     # 05:17 Cairo
+  workflow_dispatch:
+
+jobs:
+  live:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Check
+        env:
+          SHOP: fasla-test.myshopify.com
+          SEED_CLIENT_ID: 0ac5ef28c96843653ffdf3094bd0a231
+          SEED_CLIENT_SECRET: ${{ secrets.SEED_CLIENT_SECRET }}
+          AUTH_MODE: dev
+          STORAGE_MODE: local
+          DATABASE_URL: sqlite:////tmp/live.db
+        run: python scripts/live_check.py
