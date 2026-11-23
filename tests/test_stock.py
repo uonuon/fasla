@@ -68,3 +68,13 @@ def test_shopify_rows_carry_tracked_stock_only():
     o = {"name": "#1", "processedAt": "2026-03-01T10:00:00Z", "lineItems": {"nodes": [li, untracked]}}
     rows = order_rows([o])
     assert rows[0]["stock"] == 7 and rows[1]["stock"] == ""
+
+
+def test_defaults_are_sized_to_the_store():
+    """A small store in any currency gets a budget near its own production cost, and minimums it can meet."""
+    df = pd.read_csv(io.BytesIO(_orders_csv()))
+    df["price"], df["cost"] = df.price / 50, df.cost / 50      # the same store, priced in dollars
+    st = read_workbook(df.to_csv(index=False).encode())["settings"]
+    assert 100 <= st["budget"] < 20_000          # not the 2,000,000 EGP default
+    assert st["factory_moq"] <= 100 and st["min_per_color"] <= 20
+    assert st["fixed_weekly"] == 0

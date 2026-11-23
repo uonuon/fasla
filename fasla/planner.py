@@ -26,7 +26,7 @@ NUMERIC = {"Products": ["unit_cost", "price"], "Orders": ["qty"], "Production": 
            "Couriers": ["fee", "return_fee"]}
 SETTING_KEYS = [k for k, _, _ in SETTINGS]
 EDITABLE = {  # key: (min, max, kind)
-    "budget": (10_000, 1e9, float), "factory_moq": (0, 100_000, int), "min_per_color": (0, 100_000, int),
+    "budget": (100, 1e9, float), "factory_moq": (0, 100_000, int), "min_per_color": (0, 100_000, int),
     "leftover_share": (0.0, 0.95, float), "start_cash": (-1e9, 1e10, float), "deposit_share": (0.0, 1.0, float),
     "lead_weeks": (0, 52, int), "remit_weeks": (0, 12, int), "ads_share": (0.0, 0.9, float), "fixed_weekly": (0, 1e8, float),
 }
@@ -72,6 +72,38 @@ def read_orders_table(data: bytes) -> pd.DataFrame | None:
     return None if full else table
 
 
+def _nice(x: float) -> float:
+    """Round to two significant figures: 1,234,567 -> 1,200,000; 37 -> 37."""
+    if x <= 0:
+        return 0.0
+    m = 10 ** (len(str(int(x))) - 2)
+    return float(round(x / m) * m) if m >= 1 else float(round(x))
+
+
+def suggest_settings(products: pd.DataFrame, orders: pd.DataFrame) -> dict:
+    """Starting values sized to this store, not to one Egyptian brand: an orders-only upload or a Shopify store
+    can sell 50 or 50,000 pieces a year, in any currency. The owner can change all of them in the app.
+      budget       about 1.3x what last year's sales cost to make (room for growth and safety stock)
+      start_cash   the same (unknown: assume the budget is there)
+      fixed_weekly 0 (unknown; a currency-blind guess would distort the cash chart)
+      factory_moq  half of a typical style's yearly sales, at most 100: a minimum above that blocks most styles
+      min_per_color a third of that, at most 20"""
+    sold = orders[orders.status.isin(("delivered", "size_exchange"))]
+    if sold.empty:
+        return {}
+    last = sold[sold.date > sold.date.max() - pd.Timedelta(days=365)]
+    cost = products.set_index(["style_id", "color", "size"])
+    unit = pd.to_numeric(cost.unit_cost, errors="coerce").fillna(pd.to_numeric(cost.price, errors="coerce") * 0.45)
+    keys = list(zip(last.style_id, last.color, last["size"]))
+    cogs = float((last.qty.to_numpy() * unit.reindex(keys).fillna(0).to_numpy()).sum())
+    per_style = last.groupby("style_id").qty.sum()
+    typical = float(per_style.median()) if len(per_style) else 0.0
+    moq = float(min(100, 5 * int(typical * 0.5 // 5)))
+    budget = max(100.0, _nice(1.3 * cogs))
+    return dict(budget=budget, start_cash=budget, fixed_weekly=0.0, factory_moq=moq,
+                min_per_color=float(min(20, 5 * int(moq / 3 // 5))))
+
+
 def _read_simple(table: pd.DataFrame, max_rows: int, mapping: dict | None = None) -> dict:
     mapping = mapping or {}
     try:
@@ -80,6 +112,7 @@ def _read_simple(table: pd.DataFrame, max_rows: int, mapping: dict | None = None
         raise WorkbookError(e.errors, columns_problem=e.columns_problem)
     p, o, prod = x["products"], x["orders"], x["production"]
     settings = {k: float(v) for k, v, _ in SETTINGS}
+    settings.update(suggest_settings(p, o))
     so, sp, labels = assign_seasons(o, prod)
     warnings = list(x["warnings"])
     if len(so) < 300:
