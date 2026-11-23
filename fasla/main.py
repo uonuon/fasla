@@ -330,6 +330,9 @@ def shopify_import(body: ImportIn, request: Request, user: User = Depends(curren
     if isinstance(res, dict) and body.days > 70 and shp.only_recent_window(orders):
         res["checks"].setdefault("warnings", []).insert(0, shp.WINDOW_WARNING)
     if isinstance(res, dict):
+        # Shopify order lines never carry a city (no addresses read) or production numbers: those hints are noise here
+        res["checks"]["warnings"] = [w for w in res["checks"].get("warnings") or []
+                                     if not w.startswith(shp.WEBSITE_ONLY_WARNINGS)]
         # clothing or batch (food, oils, cosmetics): a guess the owner can switch in the app
         res["mode"] = shb.detect_mode(rows)
         res["batch_products"] = shb.products_for_app(data)

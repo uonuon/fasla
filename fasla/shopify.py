@@ -289,6 +289,8 @@ def order_rows(orders: list[dict]) -> list[dict]:
     return rows
 
 
+WEBSITE_ONLY_WARNINGS = ("No city or zone column", "No production numbers")
+
 WINDOW_WARNING = ("Shopify showed Fasla only the last 60 days of orders (new apps get more after Shopify approves "
                   "them). If your store is older, upload your full orders export below for a much better plan.")
 

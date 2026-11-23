@@ -161,6 +161,7 @@ def test_full_flow_install_import_plan(app_env):
     body = r.json()
     st = body["checks"]["stats"]
     assert st["orders"] > 300 and st["styles"] == 3 and all(x["cost"] for x in st["style_list"])
+    assert not any(w.startswith(("No city", "No production")) for w in body["checks"]["warnings"])
     pid = body["plan_id"]
     r = c.post(f"/api/plans/{pid}/run", json={"settings": {}}, headers=H())
     assert r.status_code == 200, r.text
