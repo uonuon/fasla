@@ -8,7 +8,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from .couriers import choose_couriers
-from .forecast import build_forecast, sample_scenarios, weekly_profile
+from .forecast import apply_window, build_forecast, sample_scenarios, weekly_profile
 from .insights import cash_flow, returns_report
 from .production import evaluate_plan, explain_styles, optimize_production
 
@@ -23,6 +23,7 @@ SETTINGS = [
     ("remit_weeks", 1, "Weeks until couriers pay COD cash back"),
     ("ads_share", 0.12, "Ad spend as a share of revenue"),
     ("fixed_weekly", 15000, "Fixed weekly costs: rent, salaries (EGP)"),
+    ("plan_months", 0, "Plan only the next N months, for stores that restock all year (0 = the whole next season)"),
 ]
 
 README = [
@@ -62,7 +63,7 @@ def write_inputs(path: str, products, orders, production, couriers, owner_estima
     st.update(settings or {})
     with pd.ExcelWriter(path, engine="openpyxl") as xw:
         pd.DataFrame({"Read me": README}).to_excel(xw, sheet_name="README", index=False)
-        pd.DataFrame([(k, st[k], d) for k, _, d in SETTINGS], columns=["setting", "value", "meaning"]).to_excel(xw, sheet_name="Settings", index=False)
+        pd.DataFrame([(k, st[k], d) for k, _, d in SETTINGS if k != "plan_months"], columns=["setting", "value", "meaning"]).to_excel(xw, sheet_name="Settings", index=False)
         products.to_excel(xw, sheet_name="Products", index=False)
         o = orders.copy()
         o["date"] = pd.to_datetime(o.date).dt.date
@@ -119,6 +120,11 @@ def sku_stock(sku: pd.DataFrame) -> np.ndarray:
 def run_plan(inp: dict, n_scen: int = 200, time_limit_s: int = 60) -> dict:
     s = inp["settings"]
     fc = build_forecast(inp["orders"], inp["production"], inp["products"], owner_estimates=inp["owner"] or None)
+    months = float(s.get("plan_months") or 0)
+    if months > 0 and inp.get("mode") == "orders":
+        # rolling plan: what to make now to cover the factory lead time plus the next `months`
+        start = inp["orders"].date.max().normalize() + pd.Timedelta(days=1)
+        fc = apply_window(fc, inp["orders"], inp["products"], start, months + float(s.get("lead_weeks", 4)) / 4.35)
     cols = ["style_id", "name", "color", "size", "unit_cost", "price"]
     cols += ["on_hand"] if "on_hand" in inp["products"].columns else []
     sku = fc["sku"].merge(inp["products"][cols], on=["style_id", "color", "size"])

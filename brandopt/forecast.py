@@ -300,3 +300,57 @@ def sample_scenarios(fc: dict, n: int = 300, seed: int = 1) -> np.ndarray:
         mix = mix / mix.sum(1, keepdims=True)
         out[:, m] = rng.poisson(shock[:, None] * info["mean"] * mix)
     return out
+
+
+def window_shares(orders: pd.DataFrame, products: pd.DataFrame, start: pd.Timestamp, months: float,
+                  prior_units: float = 60) -> dict:
+    """Share of a year's demand that falls in [start, start + months), per category.
+
+    From the store's own sales: average daily sales in each calendar month over the observed days, per
+    category, pulled toward the whole store's pattern when a category has few sales (a winter jacket and a
+    linen trouser peak in different months). Returns {category: share}, plus "*" for the whole store."""
+    sold = orders[orders.status.isin(SOLD_STATUSES)].copy()
+    if sold.empty or months <= 0:
+        return {"*": min(1.0, months / 12)}
+    cat = products.drop_duplicates("style_id").set_index("style_id").category
+    sold["cat"] = sold.style_id.map(cat).fillna("Other")
+    d0, d1 = sold.date.min().normalize(), sold.date.max().normalize()
+    seen = pd.date_range(d0, d1)
+    year = pd.date_range("2001-01-01", "2001-12-31")          # any non-leap year: day weights per month
+    end = start + pd.Timedelta(days=int(round(months * 30.44)))
+    win = pd.date_range(start.normalize(), end - pd.Timedelta(days=1))
+
+    def shares(g: pd.DataFrame) -> np.ndarray:
+        daily = g.groupby(g.date.dt.normalize()).qty.sum().reindex(seen, fill_value=0)
+        r = daily.groupby(daily.index.month).mean().reindex(range(1, 13))
+        return r.fillna(r.mean() if r.notna().any() else 1.0).clip(lower=0).to_numpy()
+
+    def share(rate: np.ndarray) -> float:
+        tot = rate[year.month - 1].sum()
+        if tot <= 0:
+            return min(1.0, months / 12)
+        # windows longer than a year repeat the pattern
+        return float(rate[win.month - 1].sum() / tot)
+
+    brand = shares(sold)
+    out = {"*": share(brand)}
+    b = brand / max(brand.mean(), 1e-9)
+    for c, g in sold.groupby("cat"):
+        own = shares(g)
+        n = float(g.qty.sum())
+        own_n = own / max(own.mean(), 1e-9)
+        out[c] = share((n * own_n + prior_units * b) / (n + prior_units))
+    return out
+
+
+def apply_window(fc: dict, orders: pd.DataFrame, products: pd.DataFrame, start: pd.Timestamp, months: float) -> dict:
+    """Turn a next-season (yearly) forecast into demand for the next `months` only: the rolling 'what to
+    make now' question of stores that restock all year. Scales each style's mean by its category's share of
+    the year falling in the window; the size and colour mix and the uncertainty shape stay as they were."""
+    sh = window_shares(orders, products, start, months)
+    cat = products.drop_duplicates("style_id").set_index("style_id").category
+    f = {sid: sh.get(cat.get(sid), sh["*"]) for sid in fc["styles"]}
+    styles = {sid: {**info, "mean": info["mean"] * f[sid]} for sid, info in fc["styles"].items()}
+    sku = fc["sku"].copy()
+    sku["mean"] = sku["mean"] * sku.style_id.map(f).fillna(sh["*"])
+    return {**fc, "sku": sku, "styles": styles, "window": dict(start=str(start.date()), months=months, shares=sh)}

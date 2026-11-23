@@ -53,6 +53,11 @@
     <p class="muted small" id="stats"></p>
     <ul id="warnings" class="small muted"></ul>
     <div class="row" style="margin:8px 0 12px">
+      <label>Plan for <select id="plan_months">
+        <option value="3" selected>The next 3 months</option><option value="6">The next 6 months</option>
+        <option value="12">The next 12 months</option><option value="0">A whole season at once</option>
+      </select></label>
+      <label>Factory lead time (weeks) <input type="number" id="lead_weeks" min="0" max="52" step="1" value="4"></label>
       <label>Production budget <span class="cur"></span> <input type="number" id="budget" min="100" step="100"></label>
       <label>Cash in the bank <span class="cur"></span> <input type="number" id="start_cash" step="100"></label>
       <label>Factory minimum per style <input type="number" id="factory_moq" min="0" step="1"></label>
@@ -135,7 +140,8 @@ $("run").onclick = async () => {
   const costs = {}; let missing = 0;
   for (const i of $("costs").querySelectorAll("input")) { if (i.value) costs[i.dataset.id] = +i.value; else missing++; }
   if (missing) { $("runMsg").innerHTML = `<span class="err">Add the cost to make each style (${missing} missing).</span>`; return; }
-  const settings = { costs }; for (const k of FIELDS) if ($(k).value !== "") settings[k] = +$(k).value;
+  const settings = { costs, plan_months: +$("plan_months").value, lead_weeks: +$("lead_weeks").value };
+  for (const k of FIELDS) if ($(k).value !== "") settings[k] = +$(k).value;
   $("run").disabled = true; $("runMsg").textContent = "Planning… about a minute.";
   try {
     await call(`/api/plans/${planId}/run`, { method: "POST", body: JSON.stringify({ settings }) });
