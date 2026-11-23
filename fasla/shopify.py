@@ -224,19 +224,35 @@ CSV_COLUMNS = ["order_id", "date", "style", "size", "color", "qty", "price", "co
                "cancelled_at", "stock"]
 
 
+ONE_SIZE = "One size"
+
+
+def _is_size_option(n: str) -> bool:
+    # "Size", "Shoe size", "Size (EU)", "Talla", "مقاس", "Größe", "Waist"...
+    return n in SIZE_NAMES or any(w in n for w in ("size", "مقاس", "taille", "talla", "größe", "groesse", "waist"))
+
+
+def _is_color_option(n: str) -> bool:
+    return n in COLOR_NAMES or any(w in n for w in ("color", "colour", "لون", "couleur", "farbe"))
+
+
 def _options(variant: dict | None, variant_title: str | None) -> tuple[str, str]:
+    """Size and colour of a line. Products with no size option (bags, scarves, one-size pieces) get "One size"
+    instead of being dropped: they are part of the store's sales and cash too."""
     size = color = ""
-    for o in (variant or {}).get("selectedOptions") or []:
+    opts = (variant or {}).get("selectedOptions") or []
+    for o in opts:
         n = str(o.get("name", "")).strip().lower()
-        if n in SIZE_NAMES and not size:
+        if _is_size_option(n) and not size:
             size = str(o.get("value", ""))
-        elif n in COLOR_NAMES and not color:
+        elif _is_color_option(n) and not color:
             color = str(o.get("value", ""))
-    if not size and not color and variant_title and variant_title != "Default Title":
+    if not opts and not size and not color and variant_title and variant_title != "Default Title":
+        # no option names (variant deleted since): "M / Black" style titles
         parts = [p.strip() for p in variant_title.split("/")]
         size = parts[0] if parts else ""
         color = parts[1] if len(parts) > 1 else ""
-    return size, color
+    return size or ONE_SIZE, color
 
 
 def order_rows(orders: list[dict]) -> list[dict]:
@@ -246,8 +262,10 @@ def order_rows(orders: list[dict]) -> list[dict]:
             qty = li.get("quantity") or 0
             if qty <= 0:
                 continue
-            size, color = _options(li.get("variant"), li.get("variantTitle"))
             prod = li.get("product") or {}
+            if not prod and not li.get("variant") and not li.get("variantTitle"):
+                continue   # custom line (gift wrap, tip, manual charge): not a product to make
+            size, color = _options(li.get("variant"), li.get("variantTitle"))
             var = li.get("variant") or {}
             inv = var.get("inventoryItem") or {}
             cost = (inv.get("unitCost") or {}).get("amount")
