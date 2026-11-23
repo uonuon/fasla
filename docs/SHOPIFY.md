@@ -33,8 +33,9 @@ The Shopify app stays off until `SHOPIFY_API_KEY` and `SHOPIFY_API_SECRET` are s
    Dev Dashboard; without it Shopify only returns the last 60 days of orders, which is too short for a season plan.
    Done so far (23 Nov): dev store `fasla-test` (Advanced plan, generated test data) and app "Fasla" (version fasla-1).
 9. **Install on the development store**, add test orders (or import a CSV of products and orders), open Fasla.
-10. **Pricing:** set up plans in the Partner dashboard (Shopify-managed pricing). Suggested: Free (up to
-    300 orders a month, one plan per season), Growth $29/month, Pro $79/month.
+10. **Pricing (agreed 23 Nov):** Shopify-managed pricing, plan names must contain Starter / Growth / Scale
+    (the app matches them, `shopify.tier`). Free: 1 plan a month, on screen only (no Excel). Starter $19/month,
+    Growth $49/month, Scale $99/month, 14-day trial on paid plans. Launch offer: first 50 stores 50% off for a review.
 11. **Listing:** submit for review with the text below, screenshots, and the privacy policy URL
     (fasla.dotcraft.app/privacy).
 

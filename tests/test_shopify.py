@@ -78,7 +78,7 @@ class FakeShopify:
         q = json.loads(request.content)
         if "currentAppInstallation" in q["query"]:
             return httpx.Response(200, json={"data": {"shop": {"name": "Nile Thread", "currencyCode": "EGP", "ianaTimezone": "Africa/Cairo"},
-                                                      "currentAppInstallation": {"activeSubscriptions": []}}})
+                                                      "currentAppInstallation": {"activeSubscriptions": getattr(self, "subs", [])}}})
         assert "customer" not in q["query"].lower() and "email" not in q["query"].lower() and "address" not in q["query"].lower()
         after = int(q["variables"].get("after") or 0)
         first = int(q["variables"].get("first") or 100)
@@ -155,6 +155,7 @@ def test_full_flow_install_import_plan(app_env):
     assert row["shop"] == SHOP and not row["access_token"].startswith("shpat_")
     # second call reuses the stored token (no new exchange)
     assert c.get("/api/shopify/session", headers=H()).status_code == 200 and fake.exchange_count == 1
+    fake.subs = [{"name": "Starter", "status": "ACTIVE", "test": True}]   # paid plan from here on
     r = c.post("/api/shopify/import", json={"days": 365}, headers=H())
     assert r.status_code == 201, r.text
     body = r.json()
@@ -262,3 +263,29 @@ def test_only_recent_window_spots_the_60_day_limit():
     assert only_recent_window(recent)
     assert not only_recent_window(recent + [{"createdAt": (now - timedelta(days=200)).isoformat()}])
     assert not only_recent_window([])
+
+
+def _wait(c, pid):
+    for _ in range(120):
+        p = c.get(f"/api/plans/{pid}", headers=H()).json()
+        if p["status"] in ("done", "failed"):
+            return p
+        time.sleep(1)
+
+
+def test_free_plan_limits(app_env):
+    c, fake, main = app_env
+    assert c.get("/api/shopify/session", headers=H()).json()["tier"] == "free"
+    pid = c.post("/api/shopify/import", json={"days": 365}, headers=H()).json()["plan_id"]
+    assert c.post(f"/api/plans/{pid}/run", json={"settings": {}}, headers=H()).status_code == 200
+    assert _wait(c, pid)["status"] == "done"
+    assert c.get(f"/api/plans/{pid}/report", headers=H()).status_code == 402      # Excel is paid
+    assert c.post(f"/api/plans/{pid}/run", json={"settings": {}}, headers=H()).status_code == 200  # same plan again: ok
+    _wait(c, pid)
+    pid2 = c.post("/api/shopify/import", json={"days": 365}, headers=H()).json()["plan_id"]
+    r = c.post(f"/api/plans/{pid2}/run", json={"settings": {}}, headers=H())
+    assert r.status_code == 402 and "one plan a month" in r.json()["detail"]
+    fake.subs = [{"name": "Growth", "status": "ACTIVE", "test": True}]
+    assert c.post(f"/api/plans/{pid2}/run", json={"settings": {}}, headers=H()).status_code == 200
+    assert _wait(c, pid2)["status"] == "done"
+    assert c.get(f"/api/plans/{pid2}/report", headers=H()).status_code == 200
