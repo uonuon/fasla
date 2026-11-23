@@ -27,4 +27,13 @@ jobs:
           AUTH_MODE: dev
           STORAGE_MODE: local
           DATABASE_URL: sqlite:////tmp/live.db
+          EXPORT_CSV: /tmp/store_orders.csv
         run: python scripts/live_check.py
+      - name: Keep the test store's order lines (synthetic store, no customer data) for engine checks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-orders
+          path: /tmp/store_orders.csv
+          retention-days: 7
+          if-no-files-found: ignore
