@@ -140,3 +140,43 @@ def test_running_season_is_not_read_as_a_drop(world_hist):
     cut = h["orders"][h["orders"].date < pd.Timestamp("2025-11-12")]
     part = build_forecast(cut, h["production"], h["products"])["sku"]["mean"].sum()
     assert 0.8 < part / full < 1.25, (part, full)
+
+
+def test_rolling_forecast_beats_repeating_last_months():
+    """Synthetic stores with known demand: the 3-month forecast per style beats 'repeat the last 3 months'."""
+    from brandopt import rolling_bench as rb
+    r = rb.run(6)
+    m = r.groupby("method").wape.mean()
+    assert m["engine"] < 0.8 * m["repeat last"], m
+
+
+def test_budget_priced_plan_is_near_optimal_and_scales():
+    import time
+    import numpy as np
+    import pandas as pd
+    from brandopt.production import optimize_production, evaluate_plan
+    rng = np.random.default_rng(0)
+    rows = [dict(style_id=f"S{s}", color=c, size=z, unit_cost=40.0, price=100.0)
+            for s in range(60) for c in ("A", "B") for z in ("S", "M", "L", "XL", "XXL")]
+    sku = pd.DataFrame(rows)                                     # 600 SKUs: exact solver
+    scen = rng.poisson(rng.uniform(2, 12, len(sku)), size=(100, len(sku))).astype(float)
+    exact = optimize_production(sku, scen, 15000, moq_style=20, min_color=5, time_limit_s=30)
+    big = pd.concat([sku.assign(style_id=sku.style_id + f"#{i}") for i in range(2)], ignore_index=True)
+    t = time.time()
+    fast = optimize_production(big, np.hstack([scen, scen]), 30000, moq_style=20, min_color=5)
+    assert fast["status"] == "fast" and time.time() - t < 10
+    pe = evaluate_plan(exact["Q"], sku, scen)["profit"]
+    pf = evaluate_plan(fast["Q"], big, np.hstack([scen, scen]))["profit"] / 2
+    assert pf >= 0.98 * pe and big.unit_cost @ fast["Q"] <= 30000 + 1e-6
+
+
+def test_leftover_cap_makes_leaner_plans():
+    import numpy as np
+    import pandas as pd
+    from brandopt.production import optimize_production
+    rng = np.random.default_rng(1)
+    sku = pd.DataFrame([dict(style_id="T", color="A", size=z, unit_cost=40.0, price=100.0) for z in "SMLX"])
+    scen = rng.poisson(10, size=(200, 4)).astype(float)
+    full = optimize_production(sku, scen, 1e9, moq_style=0, min_color=0)["Q"].sum()
+    lean = optimize_production(sku.assign(leftover_cap=0.2), scen, 1e9, moq_style=0, min_color=0)["Q"].sum()
+    assert lean < full
