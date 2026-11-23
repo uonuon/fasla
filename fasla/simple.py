@@ -354,7 +354,16 @@ def parse_orders(df: pd.DataFrame, max_rows: int = 300_000, columns: dict | None
     style_cost = out.groupby("style_id").cost.median()
     p["unit_cost"] = p.unit_cost.fillna(p.style_id.map(style_cost))
     p.insert(1, "name", p.style_id)
-    has_stock = p.on_hand.notna().any()
+    # stock only means something when the store keeps it: if (almost) every product shows 0, inventory is
+    # untracked or never filled in (made to order, dropship), not "everything sold out"
+    known = p.on_hand.dropna()
+    has_stock = len(known) > 0 and (known > 0).mean() >= 0.25
+    if len(known) and not has_stock:
+        warnings_stock = ["Stock is 0 for almost every product, so it looks untracked: Fasla ignored it. "
+                          "Keep stock counts up to date to have it subtracted from the plan."]
+        p = p.drop(columns=["on_hand"])
+    else:
+        warnings_stock = []
     products = p[["style_id", "name", "category", "color", "size", "unit_cost", "price"]
                  + (["on_hand"] if has_stock else [])]
 
@@ -381,6 +390,7 @@ def parse_orders(df: pd.DataFrame, max_rows: int = 300_000, columns: dict | None
         warnings.append("No order status column: we assumed every order was delivered, so refusals aren't counted.")
     if not col["zone"]:
         warnings.append("No city or zone column: delivery advice is for all zones together.")
+    warnings.extend(warnings_stock)
     warnings.append("No production numbers: Fasla estimates which sizes sold out from when they stopped selling. "
                     "Adding how many you produced (full template) makes demand for best sellers more accurate.")
     return dict(products=products, orders=orders, production=production, couriers=sorted(orders.courier.unique()),
