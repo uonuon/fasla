@@ -46,6 +46,13 @@
       <button class="primary" id="import">Read orders</button>
       <span id="importMsg" class="small"></span>
     </div>
+    <p class="muted small" style="margin-top:12px">Shopify lets new apps read only the last 60 days of orders. For your
+      full history, export it in Shopify (<b>Orders → Export → All orders</b>, CSV) and upload the file here.
+      Fasla keeps only the columns it needs and drops customer details before saving.</p>
+    <div class="row">
+      <input type="file" id="file" accept=".csv,.xlsx">
+      <button id="uploadBtn">Upload export</button>
+    </div>
   </div>
 
   <div class="card hidden" id="step2">
@@ -89,7 +96,7 @@ let session = null, planId = null, currency = "";
 async function call(path, opts = {}) {
   const token = await shopify.idToken();
   const r = await fetch(path, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${token}`,
-    ...(opts.body ? { "Content-Type": "application/json" } : {}) } });
+    ...(typeof opts.body === "string" ? { "Content-Type": "application/json" } : {}) } });
   const ct = r.headers.get("content-type") || "";
   const body = ct.includes("json") ? await r.json().catch(() => null) : r;
   if (!r.ok) {
@@ -118,6 +125,19 @@ $("import").onclick = async () => {
     $("importMsg").innerHTML = `<span class="ok">Done.</span>`;
   } catch (e) { $("importMsg").innerHTML = `<span class="err">${e.message}</span>`; }
   $("import").disabled = false;
+};
+
+$("uploadBtn").onclick = async () => {
+  const f = $("file").files[0];
+  if (!f) { $("importMsg").innerHTML = `<span class="err">Choose your orders export first.</span>`; return; }
+  $("uploadBtn").disabled = true; $("importMsg").textContent = "Reading your file…";
+  try {
+    const fd = new FormData(); fd.append("file", f);
+    const res = await call(`/api/brands/${session.brand_id}/uploads`, { method: "POST", body: fd });
+    planId = res.plan_id; showChecks(res.checks, res.settings || {});
+    $("importMsg").innerHTML = `<span class="ok">Done.</span>`;
+  } catch (e) { $("importMsg").innerHTML = `<span class="err">${e.message}</span>`; }
+  $("uploadBtn").disabled = false;
 };
 
 const FIELDS = ["budget", "start_cash", "factory_moq", "min_per_color"];
