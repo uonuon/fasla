@@ -83,6 +83,17 @@ export class AppStack extends Stack {
       secretStringValue: cdk.SecretValue.unsafePlainText("-"),
     });
 
+    // Shopify app keys (Dev Dashboard → Fasla → Settings). Created as "-" (Shopify app off); paste the real
+    // Client ID and Client secret into this secret in the Secrets Manager console, then force a new deployment.
+    const shopifyKeys = new secretsmanager.Secret(this, "ShopifyKeys", {
+      secretName: "fasla/shopify",
+      description: "Fasla Shopify app: SHOPIFY_API_KEY (client ID) and SHOPIFY_API_SECRET (client secret)",
+      secretObjectValue: {
+        SHOPIFY_API_KEY: cdk.SecretValue.unsafePlainText("-"),
+        SHOPIFY_API_SECRET: cdk.SecretValue.unsafePlainText("-"),
+      },
+    });
+
     // Alerts (AI budget 80% / 100%). Subscribe an email to this topic in the SNS console.
     const alerts = new sns.Topic(this, "Alerts", { topicName: "fasla-alerts", displayName: "Fasla alerts" });
 
@@ -142,6 +153,8 @@ export class AppStack extends Stack {
           ...appSecrets,
           AI_INTERNAL_KEY: ecs.Secret.fromSecretsManager(aiKey),
           ADMIN_EMAILS: ecs.Secret.fromSecretsManager(adminEmails),
+          SHOPIFY_API_KEY: ecs.Secret.fromSecretsManager(shopifyKeys, "SHOPIFY_API_KEY"),
+          SHOPIFY_API_SECRET: ecs.Secret.fromSecretsManager(shopifyKeys, "SHOPIFY_API_SECRET"),
         },
       },
     });

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="shopify-api-key" content="{{SHOPIFY_API_KEY}}">
+<script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+<title>Fasla</title>
+<style>
+  :root { --ink:#1a1a1a; --muted:#616161; --line:#e3e3e3; --bg:#f1f1f1; --card:#fff; --brand:#0b6e4f; --bad:#b42318; }
+  * { box-sizing: border-box; }
+  body { margin:0; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color:var(--ink); background:var(--bg); }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 48px; display:grid; gap:16px; }
+  .card { background:var(--card); border-radius:12px; padding:16px 20px; box-shadow:0 1px 0 rgba(0,0,0,.07); }
+  h1 { font-size:20px; margin:0; } h2 { font-size:16px; margin:0 0 8px; }
+  p { margin:6px 0; } .muted { color:var(--muted); } .small { font-size:13px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+  button { font:inherit; border-radius:8px; padding:7px 14px; border:1px solid var(--line); background:#fff; cursor:pointer; }
+  button.primary { background:#303030; color:#fff; border-color:#303030; }
+  button:disabled { opacity:.5; cursor:default; }
+  select, input { font:inherit; padding:6px 8px; border:1px solid #8a8a8a; border-radius:8px; background:#fff; }
+  input[type=number] { width:110px; text-align:right; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+  .kpi b { display:block; font-size:22px; font-variant-numeric:tabular-nums; }
+  table { width:100%; border-collapse:collapse; } th, td { padding:8px 6px; border-bottom:1px solid var(--line); text-align:left; }
+  th { font-size:12px; color:var(--muted); font-weight:600; } td.r, th.r { text-align:right; font-variant-numeric:tabular-nums; }
+  .err { color:var(--bad); } .ok { color:var(--brand); }
+  .hidden { display:none; }
+  .bar { height:6px; background:#e8e8e8; border-radius:3px; overflow:hidden; } .bar span { display:block; height:100%; background:var(--brand); }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1 id="title">Fasla</h1>
+    <p class="muted" id="sub">Know what to produce next season: how many of each style, colour and size, within your budget.</p>
+  </div>
+
+  <div class="card" id="step1">
+    <h2>1. Read your orders</h2>
+    <p class="muted small">Fasla reads order lines only: date, product, size, colour, quantity, price and status. It never reads customer names, emails, phones or addresses.</p>
+    <div class="row">
+      <label>History
+        <select id="days"><option value="365" selected>Last 12 months</option><option value="730">Last 24 months</option><option value="180">Last 6 months</option></select>
+      </label>
+      <button class="primary" id="import">Read orders</button>
+      <span id="importMsg" class="small"></span>
+    </div>
+  </div>
+
+  <div class="card hidden" id="step2">
+    <h2>2. Check costs and budget</h2>
+    <p class="muted small" id="stats"></p>
+    <ul id="warnings" class="small muted"></ul>
+    <div class="row" style="margin:8px 0 12px">
+      <label>Production budget <span class="cur"></span> <input type="number" id="budget" min="10000" step="1000"></label>
+      <label>Cash in the bank <span class="cur"></span> <input type="number" id="start_cash" step="1000"></label>
+      <label>Factory minimum per style <input type="number" id="factory_moq" min="0" step="1"></label>
+      <label>Minimum per colour <input type="number" id="min_per_color" min="0" step="1"></label>
+    </div>
+    <p class="muted small">Set the factory minimums to what your workshop really needs; they push quantities up for small styles.</p>
+    <table id="costs"><thead><tr><th>Style</th><th class="r">Price</th><th class="r">Sold last 12 months</th><th class="r">Cost to make</th></tr></thead><tbody></tbody></table>
+    <div class="row" style="margin-top:12px"><button class="primary" id="run">Make my plan</button><span id="runMsg" class="small"></span></div>
+  </div>
+
+  <div class="card hidden" id="step3">
+    <h2>Your plan</h2>
+    <div class="kpis" id="kpis"></div>
+    <table id="plan" style="margin-top:12px"><thead><tr><th>Style</th><th class="r">Make</th><th class="r">Likely demand</th><th class="r">Chance it sells out</th></tr></thead><tbody></tbody></table>
+    <div class="row" style="margin-top:12px"><button id="report">Download the full plan (Excel)</button>
+      <span class="muted small">Sizes and colours per style, cash week by week, couriers and returns are in the Excel file. "Likely demand" is the range 8 in 10 seasons fall in.</span></div>
+  </div>
+
+  <div class="card hidden" id="upgrade">
+    <p class="small">You're on the free plan. <a href="#" id="pricing" target="_top">See plans</a> for bigger stores.</p>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => (n == null ? "–" : Math.round(n).toLocaleString());
+let session = null, planId = null, currency = "";
+
+async function call(path, opts = {}) {
+  const token = await shopify.idToken();
+  const r = await fetch(path, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${token}`,
+    ...(opts.body ? { "Content-Type": "application/json" } : {}) } });
+  const ct = r.headers.get("content-type") || "";
+  const body = ct.includes("json") ? await r.json().catch(() => null) : r;
+  if (!r.ok) {
+    const msg = (body && (body.detail || (body.errors || []).join(" "))) || `Something went wrong (${r.status}).`;
+    throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+  }
+  return body;
+}
+
+async function load() {
+  try {
+    session = await call("/api/shopify/session");
+    currency = session.currency || "";
+    $("title").textContent = `Fasla · ${session.name}`;
+    if (!session.plan) { $("upgrade").classList.remove("hidden"); $("pricing").href = session.pricing_url; }
+    const last = (session.plans || []).find((p) => p.status === "done");
+    if (last) { planId = last.id; showPlan(await call(`/api/plans/${last.id}`)); }
+  } catch (e) { $("sub").innerHTML = `<span class="err">${e.message}</span>`; }
+}
+
+$("import").onclick = async () => {
+  $("import").disabled = true; $("importMsg").textContent = "Reading your orders… this can take a minute for big stores.";
+  try {
+    const res = await call("/api/shopify/import", { method: "POST", body: JSON.stringify({ days: +$("days").value }) });
+    planId = res.plan_id; showChecks(res.checks, res.settings || {});
+    $("importMsg").innerHTML = `<span class="ok">Done.</span>`;
+  } catch (e) { $("importMsg").innerHTML = `<span class="err">${e.message}</span>`; }
+  $("import").disabled = false;
+};
+
+const FIELDS = ["budget", "start_cash", "factory_moq", "min_per_color"];
+function showChecks(checks, settings) {
+  const st = checks.stats || {};
+  for (const k of FIELDS) if (settings[k] != null) $(k).value = Math.round(settings[k]);
+  document.querySelectorAll(".cur").forEach((e) => (e.textContent = currency ? `(${currency})` : ""));
+  $("stats").textContent = `${fmt(st.orders)} orders, ${fmt(st.styles)} styles, from ${st.date_from} to ${st.date_to}.`;
+  $("warnings").innerHTML = (checks.warnings || []).map((w) => `<li>${w}</li>`).join("");
+  const tb = $("costs").querySelector("tbody"); tb.innerHTML = "";
+  for (const s of st.style_list || []) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${esc(s.name)}</td><td class="r">${fmt(s.price)}</td><td class="r">${fmt(s.sold_last_year)}</td>
+      <td class="r"><input type="number" min="0.01" step="0.01" data-id="${esc(s.id)}" value="${s.cost ?? ""}" placeholder="needed"></td>`;
+    tb.appendChild(tr);
+  }
+  $("step2").classList.remove("hidden");
+}
+
+$("run").onclick = async () => {
+  const costs = {}; let missing = 0;
+  for (const i of $("costs").querySelectorAll("input")) { if (i.value) costs[i.dataset.id] = +i.value; else missing++; }
+  if (missing) { $("runMsg").innerHTML = `<span class="err">Add the cost to make each style (${missing} missing).</span>`; return; }
+  const settings = { costs }; for (const k of FIELDS) if ($(k).value !== "") settings[k] = +$(k).value;
+  $("run").disabled = true; $("runMsg").textContent = "Planning… about a minute.";
+  try {
+    await call(`/api/plans/${planId}/run`, { method: "POST", body: JSON.stringify({ settings }) });
+    for (let i = 0; i < 90; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const p = await call(`/api/plans/${planId}`);
+      if (p.status === "done") { showPlan(p); $("runMsg").textContent = ""; break; }
+      if (p.status === "failed") { throw new Error(p.error || "Planning failed"); }
+    }
+  } catch (e) { $("runMsg").innerHTML = `<span class="err">${e.message}</span>`; }
+  $("run").disabled = false;
+};
+
+function showPlan(p) {
+  const v = p.view; if (!v) return;
+  const base = v.variants[v.base]; const meta = Object.fromEntries((v.styles || []).map((s) => [s.id, s]));
+  $("kpis").innerHTML = [["Pieces to make", fmt(base.units)], ["Expected profit", `${fmt(base.profit)} ${currency}`],
+    ["Cash needed", `${fmt(base.cash_used)} ${currency}`]].map(([k, x]) => `<div class="kpi"><span class="muted small">${k}</span><b>${x}</b></div>`).join("");
+  const rows = [...(base.style || [])].sort((a, b) => b.planned - a.planned);
+  $("plan").querySelector("tbody").innerHTML = rows.map((r) => { const m = meta[r.id] || {};
+    const range = m.f_p10 != null ? `${fmt(m.f_p10)}–${fmt(m.f_p90)}` : "–";
+    return `<tr><td>${esc(m.name || r.id)}</td><td class="r"><b>${fmt(r.planned)}</b></td><td class="r">${range}</td>
+    <td class="r">${r.sellout != null ? Math.round(r.sellout * 100) + "%" : "–"}</td></tr>`; }).join("");
+  $("step3").classList.remove("hidden");
+}
+
+$("report").onclick = async () => {
+  const r = await call(`/api/plans/${planId}/report`);
+  const url = URL.createObjectURL(await r.blob());
+  const a = Object.assign(document.createElement("a"), { href: url, download: "fasla_plan.xlsx" });
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+};
+
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+load();
+</script>
+</body>
+</html>

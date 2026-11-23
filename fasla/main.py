@@ -21,7 +21,8 @@ from sqlalchemy import and_, delete, insert, select, update
 
 from .auth import User, check_pw, current_user, dev_token, hash_pw
 from .config import ROOT, Settings, get_settings
-from .db import brands, consents, dev_users, events, init_private, make_engine, plans
+from .db import brands, consents, dev_users, events, init_private, make_engine, plans, shopify_shops
+from . import shopify as shp
 from . import ai
 from .ai_context import plan_context
 from .queue import make_queue
@@ -43,7 +44,12 @@ async def security_headers(request: Request, call_next):
     resp = await call_next(request)
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    if request.url.path.startswith("/shopify"):
+        shop = request.query_params.get("shop", "")
+        anc = "https://admin.shopify.com" + (f" https://{shop}" if shp.is_shop_domain(shop) else "")
+        resp.headers["Content-Security-Policy"] = f"frame-ancestors {anc};"
+    else:
+        resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     return resp
 
 
@@ -184,6 +190,162 @@ def get_template(kind: str):
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
+# ---------------- Shopify app (embedded in the Shopify admin) ----------------
+SHOPIFY_PAGE = ROOT / "fasla" / "shopify_app.html"
+
+
+def _shopify_on():
+    if not (S.shopify_api_key and S.shopify_api_secret):
+        raise HTTPException(404, "Not found")
+
+
+def _bearer(request: Request) -> str:
+    h = request.headers.get("authorization", "")
+    return h[7:].strip() if h.lower().startswith("bearer ") else ""
+
+
+def _load_tokens(shop: str) -> shp.Tokens | None:
+    with engine.connect() as con:
+        r = con.execute(select(shopify_shops).where(shopify_shops.c.shop == shop)).mappings().first()
+    if not r or not r["access_token"] or r["uninstalled_at"]:
+        return None
+    dec = lambda v: shp.decrypt(v, S.shopify_token_key, S.shopify_api_secret) if v else None  # noqa: E731
+    utc = lambda d: d.replace(tzinfo=timezone.utc) if d is not None and d.tzinfo is None else d  # noqa: E731
+    return shp.Tokens(dec(r["access_token"]), utc(r["access_expires_at"]), dec(r["refresh_token"]),
+                      utc(r["refresh_expires_at"]), r["scope"] or "")
+
+
+def _save_tokens(shop: str, t: shp.Tokens) -> None:
+    enc = lambda v: shp.encrypt(v, S.shopify_token_key, S.shopify_api_secret) if v else None  # noqa: E731
+    vals = dict(user_id=shp.shop_user_id(shop), access_token=enc(t.access_token), access_expires_at=t.expires_at,
+                refresh_token=enc(t.refresh_token), refresh_expires_at=t.refresh_expires_at, scope=t.scope,
+                uninstalled_at=None, updated_at=datetime.now(timezone.utc))
+    with engine.begin() as con:
+        if con.execute(select(shopify_shops.c.shop).where(shopify_shops.c.shop == shop)).first():
+            con.execute(update(shopify_shops).where(shopify_shops.c.shop == shop).values(**vals))
+        else:
+            con.execute(insert(shopify_shops).values(shop=shop, **vals))
+
+
+_token_lock = threading.Lock()
+
+
+def _admin(shop: str, id_token: str = "") -> shp.Admin:
+    """An Admin API client for the shop: stored token, refreshed, or exchanged from the session token."""
+    with _token_lock:
+        t = _load_tokens(shop)
+        if t is None or not t.access_valid():
+            if t is not None and t.refresh_valid():
+                t = shp.refresh_token(shop, t.refresh_token, S.shopify_api_key, S.shopify_api_secret)
+            elif id_token:
+                t = shp.exchange_token(shop, id_token, S.shopify_api_key, S.shopify_api_secret)
+            else:
+                raise shp.ShopifyError("Open Fasla from your Shopify admin to reconnect.", 401)
+            _save_tokens(shop, t)
+    return shp.Admin(shop, t.access_token, S.shopify_api_version)
+
+
+def _shopify_user(request: Request, user: User) -> str:
+    _shopify_on()
+    if not user.shop:
+        raise HTTPException(403, "This is for Fasla inside Shopify")
+    return user.shop
+
+
+@app.get("/shopify", response_class=HTMLResponse)
+@app.get("/shopify/", response_class=HTMLResponse)
+def shopify_page():
+    _shopify_on()
+    html = SHOPIFY_PAGE.read_text(encoding="utf-8").replace("{{SHOPIFY_API_KEY}}", S.shopify_api_key)
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/shopify/session")
+def shopify_session(request: Request, user: User = Depends(current_user)):
+    shop = _shopify_user(request, user)
+    try:
+        admin = _admin(shop, _bearer(request))
+        info = admin.query(shp.SHOP_QUERY)
+    except shp.ShopifyError as e:
+        raise HTTPException(e.status, e.message)
+    name = (info.get("shop") or {}).get("name") or shop.split(".")[0]
+    subs = ((info.get("currentAppInstallation") or {}).get("activeSubscriptions")) or []
+    with engine.begin() as con:
+        b = con.execute(select(brands).where(brands.c.user_id == user.id).order_by(brands.c.created_at)).mappings().first()
+        if b is None:
+            bid = uuid.uuid4()
+            con.execute(insert(brands).values(id=bid, user_id=user.id, name=name[:120]))
+            track("shopify_install", user.id, shop=shop)
+            if _consent(user.id) is None:   # installing the app = accepting its terms (shown on the listing)
+                con.execute(insert(consents).values(user_id=user.id, terms_version="shopify", improve_data=False))
+        else:
+            bid = b["id"]
+        rows = con.execute(select(plans).where(plans.c.brand_id == bid).order_by(plans.c.created_at.desc())
+                           .limit(10)).mappings().all()
+    return {"shop": shop, "name": name, "currency": (info.get("shop") or {}).get("currencyCode"),
+            "brand_id": str(bid), "plan": subs[0]["name"] if subs else None,
+            "pricing_url": shp.pricing_url(shop, S.shopify_app_handle),
+            "plans": [_ser(r, ["id", "status", "input_name", "created_at", "finished_at", "summary", "error"]) for r in rows]}
+
+
+class ImportIn(BaseModel):
+    days: int = Field(default=365, ge=30, le=1100)
+
+
+@app.post("/api/shopify/import", status_code=201)
+def shopify_import(body: ImportIn, request: Request, user: User = Depends(current_user)):
+    shop = _shopify_user(request, user)
+    with engine.connect() as con:
+        b = con.execute(select(brands.c.id).where(brands.c.user_id == user.id).order_by(brands.c.created_at)).first()
+    if b is None:
+        raise HTTPException(409, "Open the app home first")
+    since = (datetime.now(timezone.utc) - timedelta(days=min(body.days, S.shopify_history_days))).date()
+    try:
+        orders = shp.fetch_orders(_admin(shop, _bearer(request)), since)
+    except shp.ShopifyError as e:
+        raise HTTPException(e.status, e.message)
+    rows = shp.order_rows(orders)
+    track("shopify_import", user.id, orders=len(orders), lines=len(rows), days=body.days)
+    if not rows:
+        return JSONResponse({"ok": False, "errors": ["We didn't find any orders in this period."]}, status_code=422)
+    data = shp.rows_to_csv(rows)
+    return _plan_from_bytes(b[0], user, data, f"Shopify orders since {since.isoformat()}.csv", "csv")
+
+
+@app.post("/webhooks/shopify")
+async def shopify_webhook(request: Request):
+    _shopify_on()
+    body = await request.body()
+    if not shp.verify_webhook(body, request.headers.get("x-shopify-hmac-sha256", ""), S.shopify_api_secret):
+        raise HTTPException(401, "Invalid HMAC")
+    topic = request.headers.get("x-shopify-topic", "")
+    shop = request.headers.get("x-shopify-shop-domain", "").lower()
+    if not shp.is_shop_domain(shop):
+        return {"ok": True}
+    uid = shp.shop_user_id(shop)
+    if topic == "app/uninstalled":
+        with engine.begin() as con:
+            con.execute(update(shopify_shops).where(shopify_shops.c.shop == shop).values(
+                access_token=None, refresh_token=None, access_expires_at=None, refresh_expires_at=None,
+                uninstalled_at=datetime.now(timezone.utc)))
+        track("shopify_uninstall", uid)
+    elif topic == "shop/redact":
+        # 48h after uninstall: delete everything Fasla holds for this shop
+        with engine.begin() as con:
+            paths = [p for r in con.execute(select(plans.c.input_path, plans.c.report_path)
+                                            .where(plans.c.user_id == uid)).all() for p in r if p]
+            con.execute(delete(plans).where(plans.c.user_id == uid))
+            con.execute(delete(brands).where(brands.c.user_id == uid))
+            con.execute(delete(consents).where(consents.c.user_id == uid))
+            con.execute(delete(shopify_shops).where(shopify_shops.c.shop == shop))
+        _delete_files(paths)
+        track("shopify_redact", None, topic=topic)
+    elif topic in ("customers/data_request", "customers/redact"):
+        # Fasla never stores customer names, emails, phones or addresses: nothing to send or delete
+        track("shopify_redact", None, topic=topic)
+    return {"ok": True}
+
+
 # ---------------- brands ----------------
 class BrandIn(BaseModel):
     name: str = Field(min_length=1, max_length=80)
@@ -285,18 +447,23 @@ async def upload(bid: uuid.UUID, file: UploadFile = File(...), user: User = Depe
     data = await file.read(S.max_upload_mb * 1024 * 1024 + 1)
     if len(data) > S.max_upload_mb * 1024 * 1024:
         raise HTTPException(413, f"The file is larger than {S.max_upload_mb} MB.")
+    return _plan_from_bytes(bid, user, data, file.filename or "", ext)
+
+
+def _plan_from_bytes(bid: uuid.UUID, user: User, data: bytes, filename: str, ext: str):
+    """Read an orders file (uploaded, or built from a Shopify store), store the minimal copy, create a draft plan."""
     if ext == "xlsx" and not data.startswith(b"PK\x03\x04"):
         return JSONResponse({"ok": False, "errors": ["This is not an Excel .xlsx file. Save it again as .xlsx or CSV and retry."]},
                             status_code=422)
     try:
         parsed, mapping = _smart_parse(data, str(user.id))
     except WorkbookError as e:
-        rid = _upload_log("upload_failed", user.id, data, file.filename, errors=e.errors)
+        rid = _upload_log("upload_failed", user.id, data, filename, errors=e.errors)
         return JSONResponse({"ok": False, "errors": e.errors, "report_id": rid}, status_code=422)
     except Exception as e:  # noqa: BLE001  a bug in our reader: record it, tell the owner kindly
         log.exception("upload crashed")
         msg = "Something went wrong on our side while reading this file. We've logged it and will fix it."
-        rid = _upload_log("upload_crashed", user.id, data, file.filename, errors=[f"{type(e).__name__}: {str(e)[:200]}"],
+        rid = _upload_log("upload_crashed", user.id, data, filename, errors=[f"{type(e).__name__}: {str(e)[:200]}"],
                           where=_where(e))
         return JSONResponse({"ok": False, "errors": [msg], "report_id": rid}, status_code=422)
     data_in = data
@@ -326,16 +493,16 @@ async def upload(bid: uuid.UUID, file: UploadFile = File(...), user: User = Depe
         raise HTTPException(502, f"Couldn't save the file: {e}")
     st_ = parsed["checks"]["stats"]
     warns = parsed["checks"].get("warnings") or []
-    if (mapping or warns) and not (file.filename or "").startswith("fasla_example"):
+    if (mapping or warns) and not (filename or "").startswith("fasla_example"):
         # it worked, but only with AI help or with warnings: keep the file's shape so the rules can learn it
-        _upload_log("upload_hard", user.id, data_in, file.filename, errors=warns[:10], mapping=mapping,
+        _upload_log("upload_hard", user.id, data_in, filename, errors=warns[:10], mapping=mapping,
                     mode=st_.get("mode"), orders=st_.get("orders"))
     track("upload_ok", user.id, mode=st_.get("mode"), orders=st_.get("orders"), styles=st_.get("styles"),
           seasons=len(st_.get("seasons") or []), ai_mapped=bool(st_.get("ai_mapped")),
-          example=(file.filename or "").startswith("fasla_example"))
+          example=(filename or "").startswith("fasla_example"))
     with engine.begin() as con:
         con.execute(insert(plans).values(id=pid, brand_id=bid, user_id=user.id, status="draft",
-                                         input_name=file.filename[:200], input_path=path,
+                                         input_name=filename[:200], input_path=path,
                                          settings=parsed["settings"], checks=parsed["checks"]))
     return {"ok": True, "plan_id": str(pid), "settings": parsed["settings"], "checks": parsed["checks"]}
 
@@ -453,7 +620,7 @@ def _upload_log(name: str, user_id, data: bytes, filename: str | None, **props) 
 EVENT_NAMES = {
     # server-side
     "signup", "brand_created", "upload_ok", "upload_failed", "upload_crashed", "upload_hard", "upload_shared", "plan_started", "plan_done", "plan_failed", "replan",
-    "ai_explain", "ai_ask", "consent",
+    "ai_explain", "ai_ask", "consent", "shopify_install", "shopify_import", "shopify_uninstall", "shopify_redact",
     # sent by the browser
     "page_view", "budget_change", "style_open", "report_download", "replan_open", "example_used", "setup_step",
 }

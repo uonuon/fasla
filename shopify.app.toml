@@ -1,0 +1,28 @@
+# Shopify app configuration. Deploy with the Shopify CLI (`shopify app deploy`) after filling client_id.
+client_id = "FILL_ME_FROM_DEV_DASHBOARD"
+name = "Fasla"
+handle = "fasla"
+application_url = "https://fasla.dotcraft.app/shopify/"
+embedded = true
+
+[access_scopes]
+# Orders, products and unit costs. No customer data. read_all_orders (orders older than 60 days) must be
+# requested separately in the Dev Dashboard; add it here once Shopify approves it.
+scopes = "read_orders,read_products,read_inventory"
+
+[auth]
+redirect_urls = ["https://fasla.dotcraft.app/shopify/"]
+
+[webhooks]
+api_version = "2026-10"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/uninstalled"]
+  uri = "https://fasla.dotcraft.app/webhooks/shopify"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+  uri = "https://fasla.dotcraft.app/webhooks/shopify"
+
+[pos]
+embedded = false

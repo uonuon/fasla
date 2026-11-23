@@ -97,6 +97,8 @@ def verify_dev_token(token: str, settings: Settings) -> dict:
 
 
 class User:
+    shop: str | None = None     # set for merchants using Fasla inside Shopify
+
     def __init__(self, id: uuid.UUID, email: str):
         self.id, self.email = id, email
 
@@ -106,6 +108,16 @@ def current_user(request: Request, settings: Settings = Depends(get_settings)) -
     if not h.lower().startswith("bearer "):
         raise HTTPException(401, "Please sign in")
     token = h[7:].strip()
+    if settings.shopify_api_key:
+        from .shopify import ShopifyError, peek_audience, shop_user_id, verify_id_token
+        if peek_audience(token) == settings.shopify_api_key:     # a Shopify admin session (embedded app)
+            try:
+                c = verify_id_token(token, settings.shopify_api_key, settings.shopify_api_secret)
+            except ShopifyError as e:
+                raise HTTPException(e.status, e.message)
+            u = User(shop_user_id(c["shop"]), c["shop"])
+            u.shop = c["shop"]
+            return u
     try:
         claims = verify_dev_token(token, settings) if settings.auth_mode == "dev" else verify_supabase_token(token, settings)
         return User(uuid.UUID(claims["sub"]), claims.get("email", ""))
