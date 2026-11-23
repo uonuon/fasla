@@ -51,11 +51,19 @@ def _pack(size: str) -> str:
     return "-" if size.strip().lower() in ONE_SIZE else size.strip()
 
 
+def _gone(df: pd.DataFrame) -> pd.Series:
+    """Cancelled, returned or refused lines: not demand."""
+    return (df["cancelled_at"].str.strip() != "") | df["status"].str.strip().str.lower().isin(("returned", "refused"))
+
+
 def products_for_app(csv_bytes: bytes) -> list[dict]:
-    """One row per product + variant + pack: price, known cost, stock and units sold, for the app's input table."""
+    """One row per product + variant + pack: price, known cost, stock and units sold, for the app's input table.
+    'sold' counts kept orders in the last 12 months of the data, the same way the clothing view does."""
     df = _frame(csv_bytes)
     df["product"], df["variant"], df["pack"] = df["style"], df["color"].replace("", "-"), df["size"].map(_pack)
-    df["q"] = pd.to_numeric(df["qty"], errors="coerce").fillna(0)
+    d = pd.to_datetime(df["date"].str.slice(0, 10), errors="coerce")
+    recent = d >= (d.max() - pd.DateOffset(months=12)) if d.notna().any() else pd.Series(True, index=df.index)
+    df["q"] = pd.to_numeric(df["qty"], errors="coerce").fillna(0).where(~_gone(df) & recent.fillna(False), 0)
     out = []
     for (p, v, k), g in df.groupby(["product", "variant", "pack"], sort=False):
         cost = pd.to_numeric(g["cost"], errors="coerce").dropna()
@@ -99,7 +107,7 @@ def plan_from_csv(csv_bytes: bytes, per_product: dict, budget: float | None = No
     Stock is used only when the store keeps it (same rule as clothing: mostly zeros = untracked)."""
     df = _frame(csv_bytes)
     inputs = clean_inputs(per_product)
-    gone = (df["cancelled_at"].str.strip() != "") | df["status"].str.lower().isin(("returned", "refused"))
+    gone = _gone(df)
     orders = pd.DataFrame({"date": df["date"], "product": df["style"], "variant": df["color"].replace("", "-"),
                            "pack": df["size"].map(_pack), "qty": df["qty"], "status": "delivered"})[~gone]
     rows = products_for_app(csv_bytes)

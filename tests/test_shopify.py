@@ -360,3 +360,14 @@ def test_batch_inputs_are_checked():
         shb.clean_inputs({"Jam": {"cost": "abc"}})
     with _pt.raises(ValueError):
         shb.clean_inputs({"Jam": {"cost": 0}})
+
+
+def test_batch_sold_skips_cancelled_returned_and_old():
+    from fasla import shopify_batch as shb
+    csv = ("date,style,color,size,qty,price,cost,status,cancelled_at,stock\n"
+           "2026-10-01,Jam,Fig,250 g,5,10,4,delivered,,3\n"
+           "2026-10-02,Jam,Fig,250 g,2,10,4,delivered,2026-10-03,3\n"
+           "2026-10-04,Jam,Fig,250 g,1,10,4,returned,,3\n"
+           "2025-01-01,Jam,Fig,250 g,9,10,4,delivered,,3\n").encode()
+    [row] = shb.products_for_app(csv)
+    assert row["sold"] == 5 and row["stock"] == 3
