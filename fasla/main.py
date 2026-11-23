@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, delete, insert, select, update
+from sqlalchemy import and_, delete, func, insert, select, update
 
 from .auth import User, check_pw, current_user, dev_token, hash_pw
 from .config import ROOT, Settings, get_settings
@@ -245,6 +245,22 @@ def _admin(shop: str, id_token: str = "") -> shp.Admin:
     return shp.Admin(shop, t.access_token, S.shopify_api_version)
 
 
+def _shop_tier(request: Request, shop: str) -> str:
+    try:
+        info = _admin(shop, _bearer(request)).query(shp.SHOP_QUERY)
+    except shp.ShopifyError:
+        return "free"
+    return shp.tier(((info.get("currentAppInstallation") or {}).get("activeSubscriptions")) or [])
+
+
+def _free_limit_reached(con, user: User, pid: uuid.UUID) -> bool:
+    """Free Shopify plan: one plan a month (re-running that same plan is fine)."""
+    start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    n = con.execute(select(func.count()).select_from(plans).where(and_(
+        plans.c.user_id == user.id, plans.c.id != pid, plans.c.finished_at >= start))).scalar() or 0
+    return n >= shp.FREE_PLANS_PER_MONTH
+
+
 def _shopify_user(request: Request, user: User) -> str:
     _shopify_on()
     if not user.shop:
@@ -283,7 +299,7 @@ def shopify_session(request: Request, user: User = Depends(current_user)):
         rows = con.execute(select(plans).where(plans.c.brand_id == bid).order_by(plans.c.created_at.desc())
                            .limit(10)).mappings().all()
     return {"shop": shop, "name": name, "currency": (info.get("shop") or {}).get("currencyCode"),
-            "brand_id": str(bid), "plan": subs[0]["name"] if subs else None,
+            "brand_id": str(bid), "plan": subs[0]["name"] if subs else None, "tier": shp.tier(subs),
             "pricing_url": shp.pricing_url(shop, S.shopify_app_handle),
             "plans": [_ser(r, ["id", "status", "input_name", "created_at", "finished_at", "summary", "error"]) for r in rows]}
 
@@ -806,7 +822,11 @@ _run_lock = threading.Lock()
 
 
 @app.post("/api/plans/{pid}/run")
-def run_plan(pid: uuid.UUID, body: RunIn, user: User = Depends(current_user)):
+def run_plan(pid: uuid.UUID, body: RunIn, request: Request, user: User = Depends(current_user)):
+    if user.shop and _shop_tier(request, user.shop) == "free":
+        with engine.connect() as con:
+            if _free_limit_reached(con, user, pid):
+                raise HTTPException(402, "The free plan includes one plan a month. Upgrade to Starter for unlimited plans.")
     with _run_lock:
         with engine.begin() as con:
             r = _plan(con, pid, user)
@@ -860,7 +880,9 @@ def _file(pid: uuid.UUID, user: User, which: str):
 
 
 @app.get("/api/plans/{pid}/report")
-def report(pid: uuid.UUID, user: User = Depends(current_user)):
+def report(pid: uuid.UUID, request: Request, user: User = Depends(current_user)):
+    if user.shop and _shop_tier(request, user.shop) == "free":
+        raise HTTPException(402, "The Excel plan (sizes and colours per style) is on Starter and above.")
     return _file(pid, user, "report")
 
 

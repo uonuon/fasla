@@ -331,6 +331,23 @@ def rows_to_csv(rows: list[dict]) -> bytes:
     return buf.getvalue().encode("utf-8")
 
 
+# Plans sold through Shopify (managed pricing). Names must match the plan names set on the listing.
+PAID_TIERS = ("starter", "growth", "scale")
+FREE_PLANS_PER_MONTH = 1
+
+
+def tier(subscriptions: list[dict]) -> str:
+    """'free' or the paid tier name from the store's active app subscriptions (test charges on dev stores count)."""
+    for s in subscriptions or []:
+        if str(s.get("status", "ACTIVE")).upper() != "ACTIVE":
+            continue
+        name = str(s.get("name", "")).lower()
+        for t in PAID_TIERS:
+            if t in name:
+                return t
+    return "free"
+
+
 def pricing_url(shop: str, app_handle: str) -> str:
     """Shopify-hosted plan page (managed pricing): the merchant picks a plan there."""
     return f"https://admin.shopify.com/store/{shop.split('.')[0]}/charges/{app_handle}/pricing_plans"
