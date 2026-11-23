@@ -78,3 +78,21 @@ def test_defaults_are_sized_to_the_store():
     assert 100 <= st["budget"] < 20_000          # not the 2,000,000 EGP default
     assert st["factory_moq"] <= 100 and st["min_per_color"] <= 20
     assert st["fixed_weekly"] == 0
+
+
+def test_shopify_lines_without_size_are_kept_as_one_size():
+    base = {"quantity": 1, "currentQuantity": 1, "originalUnitPriceSet": {"shopMoney": {"amount": "300"}},
+            "product": {"title": "Tote Bag", "productType": "Bags"}}
+    color_only = {**base, "title": "Tote Bag", "variantTitle": "Beige",
+                  "variant": {"selectedOptions": [{"name": "Color", "value": "Beige"}]}}
+    plain = {**base, "title": "Silk Scarf", "variantTitle": "Default Title", "product": {"title": "Silk Scarf"},
+             "variant": {"selectedOptions": [{"name": "Title", "value": "Default Title"}]}}
+    shoe = {**base, "title": "Loafer", "variantTitle": "41 / Black",
+            "variant": {"selectedOptions": [{"name": "Shoe size (EU)", "value": "41"},
+                                            {"name": "Colour", "value": "Black"}]}}
+    custom = {"quantity": 1, "currentQuantity": 1, "title": "Gift wrap", "product": None, "variant": None,
+              "variantTitle": None, "originalUnitPriceSet": {"shopMoney": {"amount": "20"}}}
+    o = {"name": "#9", "processedAt": "2026-03-01T10:00:00Z", "lineItems": {"nodes": [color_only, plain, shoe, custom]}}
+    rows = order_rows([o])
+    assert [(r["style"], r["size"], r["color"]) for r in rows] == [
+        ("Tote Bag", "One size", "Beige"), ("Silk Scarf", "One size", ""), ("Tote Bag", "41", "Black")]
