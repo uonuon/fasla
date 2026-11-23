@@ -114,3 +114,13 @@ def test_window_check_scores_the_last_months():
     c = window_check(inp)
     assert c and c["kind"] == "window" and c["styles"] == 3
     assert 0 <= c["style_error"] < 1 and c["repeat_last_error"] >= 0
+
+
+def test_all_zero_stock_is_treated_as_untracked():
+    """Stores that never fill in inventory show 0 everywhere: that is not 'everything sold out'."""
+    zeros = {(s, c, z): 0 for s in ("Tee", "Hoodie", "Jeans") for c in ("Black", "White") for z in ("S", "M", "L", "XL")}
+    p = read_workbook(_orders_csv(zeros))
+    inp = p["inp"]
+    assert "on_hand" not in inp["products"].columns
+    assert (inp["production"].produced == 0).all()
+    assert any("untracked" in w for w in p["checks"]["warnings"])
