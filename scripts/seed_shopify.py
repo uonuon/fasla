@@ -228,6 +228,51 @@ def count_seeded(s: Shop) -> int:
     return s.q('query{ ordersCount(query:"tag:%s", limit: null){ count } }' % TAG)["ordersCount"]["count"]
 
 
+def apply_fate(s: Shop, order: dict, fate: str) -> None:
+    """Cancel the order, or refund (return) its first line. Both mutations need an @idempotent key from API
+    2026-04; keyed on the order so a repeat is harmless."""
+    try:
+        oid = order["id"].rsplit("/", 1)[-1]
+        if fate == "cancel":
+            r = s.q("""mutation($id: ID!, $key: String!){ orderCancel(orderId:$id, reason: CUSTOMER, restock: false,
+                notifyCustomer: false, refundMethod: {originalPaymentMethodsRefund: false}) @idempotent(key: $key){
+                userErrors: orderCancelUserErrors { message } } }""", {"id": order["id"], "key": f"seed-cancel-{oid}"})
+            if r["orderCancel"]["userErrors"]:
+                log("  cancel not recorded:", r["orderCancel"]["userErrors"])
+        elif fate == "return":
+            li = order["lineItems"]["nodes"][0]
+            r = s.q("""mutation($input: RefundInput!, $key: String!){ refundCreate(input: $input) @idempotent(key: $key){
+                userErrors { message } } }""", {"key": f"seed-return-{oid}", "input": {"orderId": order["id"],
+                    "notify": False, "refundLineItems": [{"lineItemId": li["id"], "quantity": li["quantity"],
+                                                          "restockType": "NO_RESTOCK"}]}})["refundCreate"]
+            if r["userErrors"]:
+                log("  return not recorded:", r["userErrors"])
+    except Exception as e:  # a missing cancel/return must not stop the run
+        log("  follow-up failed:", str(e)[:300])
+
+
+def catch_up_fates(s: Shop, orders: list[dict]) -> None:
+    """Apply cancellations and returns that earlier runs could not record, matching seeded orders to the plan by
+    their processed time (minute precision, unique in practice)."""
+    want = {o["at"].strftime("%Y-%m-%dT%H:%M"): o["fate"] for o in orders if o["fate"] != "ok"}
+    after, fixed = None, 0
+    while True:
+        d = s.q("""query($after: String){ orders(first: 100, after: $after, query: "tag:fasla-seed"){
+            pageInfo { hasNextPage endCursor }
+            nodes { id processedAt cancelledAt lineItems(first: 5){ nodes { id quantity currentQuantity } } } } }""",
+                {"after": after})["orders"]
+        for n in d["nodes"]:
+            fate = want.get(n["processedAt"][:16])
+            if fate == "cancel" and not n["cancelledAt"]:
+                apply_fate(s, n, "cancel"); fixed += 1
+            elif fate == "return" and n["lineItems"]["nodes"] and n["lineItems"]["nodes"][0]["currentQuantity"] > 0:
+                apply_fate(s, n, "return"); fixed += 1
+        if not d["pageInfo"]["hasNextPage"]:
+            break
+        after = d["pageInfo"]["endCursor"]
+    log(f"caught up {fixed} cancellations/returns")
+
+
 def create_order(s: Shop, o: dict, currency: str) -> str | None:
     total = sum(float(l["variant"]["price"]) * l["qty"] for l in o["lines"])
     inp = {
@@ -246,21 +291,7 @@ def create_order(s: Shop, o: dict, currency: str) -> str | None:
         errs = d["userErrors"]
         if not errs:
             order = d["order"]
-            try:
-                if o["fate"] == "cancel":
-                    s.q("""mutation($id: ID!){ orderCancel(orderId:$id, reason: CUSTOMER, restock: false,
-                        notifyCustomer: false, refundMethod: {originalPaymentMethodsRefund: false}){
-                        userErrors: orderCancelUserErrors { message } } }""", {"id": order["id"]})
-                elif o["fate"] == "return":
-                    li = order["lineItems"]["nodes"][0]
-                    r = s.q("""mutation($input: RefundInput!){ refundCreate(input: $input){
-                        userErrors { message } } }""", {"input": {"orderId": order["id"], "notify": False,
-                            "refundLineItems": [{"lineItemId": li["id"], "quantity": li["quantity"],
-                                                 "restockType": "NO_RESTOCK"}]}})["refundCreate"]
-                    if r["userErrors"]:
-                        log("  return not recorded:", r["userErrors"])
-            except Exception as e:  # a missing cancel/return must not stop the run
-                log("  follow-up failed:", e)
+            apply_fate(s, order, o["fate"])
             return order["id"]
         msg = " ".join(e["message"] for e in errs)
         if "too many" in msg.lower() or "limit" in msg.lower() or "throttl" in msg.lower():
@@ -302,6 +333,7 @@ def main():
         if oid and (o["n"] + 1) % 10 == 0:
             log(f"{o['n'] + 1}/{len(orders)} orders ({o['at'].date()})")
     log("done:", count_seeded(s), "seeded orders")
+    catch_up_fates(s, orders)
     set_stock(s, variants, orders)
 
 
