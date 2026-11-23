@@ -372,3 +372,51 @@ def test_batch_sold_skips_cancelled_returned_and_old():
            "2025-01-01,Jam,Fig,250 g,9,10,4,delivered,,3\n").encode()
     [row] = shb.products_for_app(csv)
     assert row["sold"] == 5 and row["stock"] == 3
+
+
+def test_store_size_limits():
+    from fasla import shopify as shp
+    small = {"products": 140, "orders": 1600, "date_from": "2025-11-23", "date_to": "2026-11-22"}
+    big = {"products": 900, "orders": 30000, "date_from": "2025-11-23", "date_to": "2026-11-22"}
+    huge = {"products": 5000, "orders": 30000, "date_from": "2025-11-23", "date_to": "2026-11-22"}
+    assert shp.store_size(small) == {"products": 140, "orders_per_month": 134}
+    assert shp.size_limit_message("starter", small) is None and shp.size_limit_message("free", small) is None
+    m = shp.size_limit_message("starter", big)
+    assert m and "900 products" in m and "Growth" in m
+    assert "Scale" in shp.size_limit_message("starter", huge)
+    assert "Scale" in shp.size_limit_message("growth", huge)
+    assert shp.size_limit_message("scale", huge) is None
+    assert shp.size_limit_message("starter", {}) is None   # no stats: never block
+
+
+def test_restock_alerts_flow(app_env):
+    c, fake, main = app_env
+    for n in fake.nodes:   # stock tracked, mostly low
+        for li in n["lineItems"]["nodes"]:
+            li["variant"]["inventoryQuantity"] = 0 if li["variant"]["selectedOptions"][0]["value"] == "M" else 30
+            li["variant"]["inventoryItem"]["tracked"] = True
+    fake.subs = [{"name": "Starter", "status": "ACTIVE", "test": True}]
+    c.get("/api/shopify/session", headers=H())
+    assert c.post("/api/shopify/import", json={"days": 365}, headers=H()).status_code == 201
+    r = c.get("/api/shopify/alerts", headers=H())
+    assert r.status_code == 402 and "Growth" in r.json()["detail"]
+    fake.subs = [{"name": "Growth", "status": "ACTIVE", "test": True}]
+    r = c.get("/api/shopify/alerts", headers=H())
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["tracked"] and body["alerts"]
+    assert all(a["size"] == "M" and a["stock"] == 0 and a["start_by"] == "now" for a in body["alerts"])
+
+
+def test_plan_blocked_when_store_outgrows_plan(app_env):
+    c, fake, main = app_env
+    fake.subs = [{"name": "Starter", "status": "ACTIVE", "test": True}]
+    c.get("/api/shopify/session", headers=H())
+    body = c.post("/api/shopify/import", json={"days": 365}, headers=H()).json()
+    assert body["size"]["products"] > 0
+    main.shp.TIER_LIMITS["starter"] = (5, 1000)    # pretend the store is bigger than Starter covers
+    try:
+        r = c.post(f"/api/plans/{body['plan_id']}/run", json={"settings": {}}, headers=H())
+        assert r.status_code == 402 and "Upgrade to Growth" in r.json()["detail"]
+    finally:
+        main.shp.TIER_LIMITS["starter"] = (300, 1000)

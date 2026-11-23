@@ -24,6 +24,7 @@ from .config import ROOT, Settings, get_settings
 from .db import brands, consents, dev_users, events, init_private, make_engine, plans, shopify_shops
 from . import shopify as shp
 from . import shopify_batch as shb
+from .alerts import restock_alerts
 from . import ai
 from .ai_context import plan_context
 from .queue import make_queue
@@ -262,6 +263,13 @@ def _free_limit_reached(con, user: User, pid: uuid.UUID) -> bool:
     return n >= shp.FREE_PLANS_PER_MONTH
 
 
+def _size_check(tier: str, checks: dict | None) -> None:
+    """Plans are sized by the store (products and orders a month): stop with an upgrade message when it's bigger."""
+    msg = shp.size_limit_message(tier, (checks or {}).get("stats") or {})
+    if msg:
+        raise HTTPException(402, msg)
+
+
 def _shopify_user(request: Request, user: User) -> str:
     _shopify_on()
     if not user.shop:
@@ -334,6 +342,7 @@ def shopify_import(body: ImportIn, request: Request, user: User = Depends(curren
         res["checks"]["warnings"] = [w for w in res["checks"].get("warnings") or []
                                      if not w.startswith(shp.WEBSITE_ONLY_WARNINGS)]
         # clothing or batch (food, oils, cosmetics): a guess the owner can switch in the app
+        res["size"] = shp.store_size(res["checks"].get("stats") or {})
         res["mode"] = shb.detect_mode(rows)
         res["batch_products"] = shb.products_for_app(data)
     return res
@@ -352,8 +361,10 @@ def shopify_batch_plan(body: ShopifyBatchIn, request: Request, user: User = Depe
     shop = _shopify_user(request, user)
     with engine.connect() as con:
         r = _plan(con, body.plan_id, user)
-        if _shop_tier(request, shop) == "free" and _free_limit_reached(con, user, body.plan_id):
+        tier = _shop_tier(request, shop)
+        if tier == "free" and _free_limit_reached(con, user, body.plan_id):
             raise HTTPException(402, "The free plan includes one plan a month. Upgrade to Starter for unlimited plans.")
+    _size_check(tier, r["checks"])
     try:
         res = shb.plan_from_csv(storage.get(r["input_path"]), body.products, body.budget, body.months_ahead)
     except ValueError as e:
@@ -365,6 +376,29 @@ def shopify_batch_plan(body: ShopifyBatchIn, request: Request, user: User = Depe
     track("batch_plan", user.id, skus=len(plan), make=int(plan.make.sum()), cost=round(res["total_cost"]), shopify=True)
     return {"start": str(res["start"]), "total_cost": round(res["total_cost"]), "notes": res["notes"],
             "plan": _records(plan.round(3)), "batches": _records(res["batches"].round(1))}
+
+
+@app.get("/api/shopify/alerts")
+def shopify_alerts(request: Request, user: User = Depends(current_user)):
+    """Restock alerts (Growth and Scale) from the store's latest imported orders and stock."""
+    shop = _shopify_user(request, user)
+    tier = _shop_tier(request, shop)
+    if tier not in shp.ALERT_TIERS:
+        raise HTTPException(402, "Restock alerts are on Growth and Scale: Fasla tells you which sizes and colours "
+                                 "will run out before new stock could arrive.")
+    with engine.connect() as con:
+        r = con.execute(select(plans).where(and_(plans.c.user_id == user.id, plans.c.input_path.is_not(None)))
+                        .order_by(plans.c.created_at.desc()).limit(1)).mappings().first()
+    if r is None:
+        raise HTTPException(409, "Read your orders first.")
+    _size_check(tier, r["checks"])
+    lead = float((r["settings"] or {}).get("lead_weeks") or 4)
+    try:
+        res = restock_alerts(storage.get(r["input_path"]), lead)
+    except (WorkbookError, StorageError, ValueError) as e:
+        raise HTTPException(422, f"Couldn't check stock: {e}")
+    track("shopify_alerts", user.id, alerts=len(res["alerts"]), checked=res["checked"])
+    return res
 
 
 @app.post("/webhooks/shopify")
@@ -936,10 +970,12 @@ _run_lock = threading.Lock()
 
 @app.post("/api/plans/{pid}/run")
 def run_plan(pid: uuid.UUID, body: RunIn, request: Request, user: User = Depends(current_user)):
-    if user.shop and _shop_tier(request, user.shop) == "free":
+    if user.shop:
+        tier = _shop_tier(request, user.shop)
         with engine.connect() as con:
-            if _free_limit_reached(con, user, pid):
+            if tier == "free" and _free_limit_reached(con, user, pid):
                 raise HTTPException(402, "The free plan includes one plan a month. Upgrade to Starter for unlimited plans.")
+            _size_check(tier, _plan(con, pid, user)["checks"])
     with _run_lock:
         with engine.begin() as con:
             r = _plan(con, pid, user)

@@ -339,6 +339,43 @@ def rows_to_csv(rows: list[dict]) -> bytes:
 # Plans sold through Shopify (managed pricing). Names must match the plan names set on the listing.
 PAID_TIERS = ("starter", "growth", "scale")
 FREE_PLANS_PER_MONTH = 1
+# Plans are sized by the store: products (each size and colour counts) and orders a month. None = no limit.
+TIER_LIMITS = {"free": (300, 1000), "starter": (300, 1000), "growth": (2000, 5000), "scale": (None, None)}
+NEXT_TIER = {"free": "Starter", "starter": "Growth", "growth": "Scale"}
+ALERT_TIERS = ("growth", "scale")
+
+
+def store_size(stats: dict) -> dict | None:
+    """Products (style x colour x size) and average orders a month, from an import's stats."""
+    try:
+        d0, d1 = date.fromisoformat(str(stats["date_from"])[:10]), date.fromisoformat(str(stats["date_to"])[:10])
+        months = max((d1 - d0).days / 30.44, 1.0)
+        return {"products": int(stats.get("products") or 0), "orders_per_month": round(float(stats.get("orders") or 0) / months)}
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def size_limit_message(tier: str, stats: dict) -> str | None:
+    """None if the store fits its plan, else what to upgrade to and why."""
+    size = store_size(stats)
+    lim = TIER_LIMITS.get(tier, TIER_LIMITS["free"])
+    if size is None or lim[0] is None:
+        return None
+    over = []
+    if size["products"] > lim[0]:
+        over.append(f"{size['products']:,} products (sizes and colours count; your plan covers {lim[0]:,})")
+    if size["orders_per_month"] > lim[1]:
+        over.append(f"about {size['orders_per_month']:,} orders a month (your plan covers {lim[1]:,})")
+    if not over:
+        return None
+    up = NEXT_TIER.get(tier, "Scale")
+    if tier in ("free", "starter") and size["products"] <= TIER_LIMITS["growth"][0] \
+            and size["orders_per_month"] <= TIER_LIMITS["growth"][1]:
+        up = "Growth"
+    elif tier in ("free", "starter", "growth"):
+        up = "Scale" if tier == "growth" or size["products"] > TIER_LIMITS["growth"][0] \
+            or size["orders_per_month"] > TIER_LIMITS["growth"][1] else up
+    return f"Your store has {' and '.join(over)}. Upgrade to {up} to plan it."
 
 
 def tier(subscriptions: list[dict]) -> str:
