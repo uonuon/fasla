@@ -46,6 +46,8 @@ def store_checks() -> None:
     stocked = [x for x in rows if x["stock"] not in ("", None)]
     check(len(stocked) > 0.5 * len(rows), f"lines with tracked stock: {len(stocked)}/{len(rows)}")
     data = shp.rows_to_csv(rows)
+    if os.environ.get("EXPORT_CSV"):   # order lines only (no customer data), for engine checks offline
+        open(os.environ["EXPORT_CSV"], "wb").write(data)
 
     parsed = read_workbook(data)
     st = parsed["settings"]
