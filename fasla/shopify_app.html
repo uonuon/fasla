@@ -125,10 +125,22 @@
       <span class="muted small">Sizes and colours per style, cash week by week, couriers and returns are in the Excel file. "Likely demand" is the range 8 in 10 seasons fall in.</span></div>
   </div>
 
+  <div class="card hidden" id="alertsCard">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">Restock alerts</h2>
+      <button id="alertsBtn">Check stock now</button>
+    </div>
+    <p class="muted small" id="alertsSub">Sizes and colours that will run out before new stock could arrive (your factory lead time plus a week).</p>
+    <p class="small" id="alertsMsg"></p>
+    <table id="alerts" class="hidden"><thead><tr><th>Product</th><th class="r">In stock</th><th class="r">Sold, last 30 days</th>
+      <th class="r">Needed before new stock lands</th><th class="r">Start production</th></tr></thead><tbody></tbody></table>
+  </div>
+
   <div class="card hidden" id="upgrade">
     <p class="small">You're on the free plan: one plan a month, shown on screen.
-      <a href="#" id="pricing" target="_top">Upgrade</a> for unlimited plans and the Excel file with every size and colour
-      (Starter $19/month, Growth $49, Scale $99; 14-day free trial).</p>
+      <a href="#" id="pricing" target="_top">Upgrade</a> for unlimited plans and the Excel file with every size and colour.
+      Starter $19/month (up to 300 sizes and colours, 1,000 orders a month), Growth $49 (2,000 and 5,000, plus restock
+      alerts), Scale $99 (no limits). 14-day free trial.</p>
   </div>
 </main>
 <script>
@@ -155,6 +167,7 @@ async function load() {
     currency = session.currency || "";
     $("title").textContent = `Fasla · ${session.name}`;
     if (!session.plan) { $("upgrade").classList.remove("hidden"); $("pricing").href = session.pricing_url; }
+    showAlertsCard();
     const last = (session.plans || []).find((p) => p.status === "done");
     if (last) { planId = last.id; showPlan(await call(`/api/plans/${last.id}`)); }
   } catch (e) { $("sub").innerHTML = `<span class="err">${e.message}</span>`; }
@@ -253,7 +266,7 @@ function showChecks(checks, settings) {
   const st = checks.stats || {};
   for (const k of FIELDS) if (settings[k] != null) $(k).value = Math.round(settings[k]);
   document.querySelectorAll(".cur").forEach((e) => (e.textContent = currency ? `(${currency})` : ""));
-  $("stats").textContent = `${fmt(st.orders)} orders, ${fmt(st.styles)} styles, from ${st.date_from} to ${st.date_to}.`;
+  $("stats").textContent = `${fmt(st.orders)} orders, ${fmt(st.styles)} styles (${fmt(st.products)} sizes and colours), from ${st.date_from} to ${st.date_to}.`;
   $("warnings").innerHTML = (checks.warnings || []).map((w) => `<li>${w}</li>`).join("");
   const tb = $("costs").querySelector("tbody"); tb.innerHTML = "";
   for (const s of st.style_list || []) {
@@ -306,6 +319,33 @@ $("report").onclick = async () => {
   const url = URL.createObjectURL(await r.blob());
   const a = Object.assign(document.createElement("a"), { href: url, download: "fasla_plan.xlsx" });
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+};
+
+
+// ---- restock alerts (Growth and Scale); other plans see what it does and where to get it ----
+function showAlertsCard() {
+  $("alertsCard").classList.remove("hidden");
+  if (!["growth", "scale"].includes(session.tier)) {
+    $("alertsBtn").classList.add("hidden");
+    $("alertsMsg").innerHTML = `Restock alerts are on Growth and Scale. <a href="${session.pricing_url}" target="_top">See plans</a>`;
+  }
+}
+$("alertsBtn").onclick = async () => {
+  $("alertsBtn").disabled = true; $("alertsMsg").textContent = "Checking your stock…";
+  try {
+    const r = await call("/api/shopify/alerts");
+    const tb = $("alerts").querySelector("tbody");
+    if (!r.tracked) { $("alertsMsg").textContent = "Shopify isn't tracking stock for most of your products, so there's nothing to check. Turn on inventory tracking in Shopify to get alerts."; $("alerts").classList.add("hidden"); }
+    else if (!r.alerts.length) { $("alertsMsg").innerHTML = `<span class="ok">All good:</span> nothing will run out before new stock could arrive (checked ${fmt(r.checked)} products, orders up to ${r.as_of}).`; $("alerts").classList.add("hidden"); }
+    else {
+      $("alertsMsg").textContent = `${r.total} product${r.total === 1 ? "" : "s"} will run short (orders up to ${r.as_of}, lead time ${r.lead_days} days).`;
+      tb.innerHTML = r.alerts.map((a) => `<tr><td>${esc(a.style)}<div class="small muted">${esc([a.color, a.size].filter((x) => x && x !== "-").join(" · "))}</div></td>
+        <td class="r">${fmt(a.stock)}</td><td class="r">${fmt(a.sold_last_30)}</td><td class="r"><b>${fmt(a.need_next)}</b></td>
+        <td class="r">${a.start_by === "now" ? '<span class="err">Now</span>' : esc(a.start_by)}</td></tr>`).join("");
+      $("alerts").classList.remove("hidden");
+    }
+  } catch (e) { $("alertsMsg").innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  $("alertsBtn").disabled = false;
 };
 
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
