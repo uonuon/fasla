@@ -52,6 +52,13 @@ class Settings:
     admin_emails: str = _env("ADMIN_EMAILS", "")                   # comma-separated; can see /api/admin/metrics
     plan_queue_url: str = _env("PLAN_QUEUE_URL", "")             # SQS: plans run on the worker service; empty = in-process
     aws_region: str = _env("AWS_REGION", "eu-north-1")
+    # Shopify app (empty = the Shopify app is off). Client id/secret come from the Shopify Dev Dashboard.
+    shopify_api_key: str = _env("SHOPIFY_API_KEY")
+    shopify_api_secret: str = _env("SHOPIFY_API_SECRET")
+    shopify_api_version: str = _env("SHOPIFY_API_VERSION", "2026-10")
+    shopify_app_handle: str = _env("SHOPIFY_APP_HANDLE", "fasla")
+    shopify_token_key: str = _env("SHOPIFY_TOKEN_KEY")          # Fernet key for stored tokens; derived if empty
+    shopify_history_days: int = int(_env("SHOPIFY_HISTORY_DAYS", "365"))
 
     def validate(self) -> list[str]:
         probs = []

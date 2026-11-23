@@ -78,6 +78,21 @@ consents = Table(
 )
 
 
+shopify_shops = Table(
+    "shopify_shops", private,
+    Column("shop", String(120), primary_key=True),
+    Column("user_id", Uuid, nullable=False, index=True),
+    Column("access_token", Text),                  # encrypted
+    Column("access_expires_at", DateTime(timezone=True)),
+    Column("refresh_token", Text),                 # encrypted
+    Column("refresh_expires_at", DateTime(timezone=True)),
+    Column("scope", Text),
+    Column("installed_at", DateTime(timezone=True), nullable=False, default=now),
+    Column("uninstalled_at", DateTime(timezone=True)),
+    Column("updated_at", DateTime(timezone=True), nullable=False, default=now),
+)
+
+
 def make_engine(url: str):
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://"):]
