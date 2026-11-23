@@ -128,6 +128,8 @@ def run_plan(inp: dict, n_scen: int = 200, time_limit_s: int = 60) -> dict:
     cols = ["style_id", "name", "color", "size", "unit_cost", "price"]
     cols += ["on_hand"] if "on_hand" in inp["products"].columns else []
     sku = fc["sku"].merge(inp["products"][cols], on=["style_id", "color", "size"])
+    if s.get("leftover_of_cost") is not None:   # the owner's answer to "what are leftovers worth to you?"
+        sku["leftover_cap"] = float(s["leftover_of_cost"])
     stock = sku_stock(sku)
     scen = sample_scenarios(fc, n_scen, seed=3)
     opt = optimize_production(sku, scen, float(s["budget"]), moq_style=int(s["factory_moq"]),

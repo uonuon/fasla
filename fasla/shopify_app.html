@@ -100,6 +100,11 @@
         <option value="3" selected>The next 3 months</option><option value="6">The next 6 months</option>
         <option value="12">The next 12 months</option><option value="0">A whole season at once</option>
       </select></label>
+      <label>Pieces left over are <select id="leftover">
+        <option value="0.9">sold later at full price (basics)</option>
+        <option value="0.5" selected>cleared at a discount, about half their cost</option>
+        <option value="0.2">hard to sell (seasonal or trendy)</option>
+      </select></label>
       <label>Factory lead time (weeks) <input type="number" id="lead_weeks" min="0" max="52" step="1" value="4"></label>
       <label>Production budget <span class="cur"></span> <input type="number" id="budget" min="100" step="100"></label>
       <label>Cash in the bank <span class="cur"></span> <input type="number" id="start_cash" step="100"></label>
@@ -115,7 +120,7 @@
     <h2>Your plan</h2>
     <div class="kpis" id="kpis"></div>
     <p class="small muted" id="accuracy"></p>
-    <table id="plan" style="margin-top:12px"><thead><tr><th>Style</th><th class="r">Make</th><th class="r">In stock</th><th class="r">Likely demand</th><th class="r">Chance it sells out</th></tr></thead><tbody></tbody></table>
+    <table id="plan" style="margin-top:12px"><thead><tr><th>Style</th><th class="r">Make</th><th class="r">In stock</th><th class="r">Likely demand</th><th class="r">Chance it sells out</th><th class="r">Likely left over</th></tr></thead><tbody></tbody></table>
     <div class="row" style="margin-top:12px"><button id="report">Download the full plan (Excel)</button>
       <span class="muted small">Sizes and colours per style, cash week by week, couriers and returns are in the Excel file. "Likely demand" is the range 8 in 10 seasons fall in.</span></div>
   </div>
@@ -264,7 +269,8 @@ $("run").onclick = async () => {
   const costs = {}; let missing = 0;
   for (const i of $("costs").querySelectorAll("input")) { if (i.value) costs[i.dataset.id] = +i.value; else missing++; }
   if (missing) { $("runMsg").innerHTML = `<span class="err">Add the cost to make each style (${missing} missing).</span>`; return; }
-  const settings = { costs, plan_months: +$("plan_months").value, lead_weeks: +$("lead_weeks").value };
+  const settings = { costs, plan_months: +$("plan_months").value, lead_weeks: +$("lead_weeks").value,
+                     leftover_of_cost: +$("leftover").value };
   for (const k of FIELDS) if ($(k).value !== "") settings[k] = +$(k).value;
   $("run").disabled = true; $("runMsg").textContent = "Planning… about a minute.";
   try {
@@ -291,7 +297,7 @@ function showPlan(p) {
   $("plan").querySelector("tbody").innerHTML = rows.map((r) => { const m = meta[r.id] || {};
     const range = m.f_p10 != null ? `${fmt(m.f_p10)}–${fmt(m.f_p90)}` : "–";
     return `<tr><td>${esc(m.name || r.id)}</td><td class="r"><b>${fmt(r.planned)}</b></td><td class="r">${r.stock ? fmt(r.stock) : "–"}</td><td class="r">${range}</td>
-    <td class="r">${r.sellout != null ? Math.round(r.sellout * 100) + "%" : "–"}</td></tr>`; }).join("");
+    <td class="r">${r.sellout != null ? Math.round(r.sellout * 100) + "%" : "–"}</td><td class="r">${r.left != null ? fmt(r.left) : "–"}</td></tr>`; }).join("");
   $("step3").classList.remove("hidden");
 }
 
