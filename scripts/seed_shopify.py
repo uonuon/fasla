@@ -191,7 +191,10 @@ def set_stock(s: Shop, variants: list[dict], orders: list[dict]) -> None:
             for l in o["lines"]:
                 rate[l["variant"]["id"]] = rate.get(l["variant"]["id"], 0) + l["qty"] / 2   # per month
     top = sorted(rate, key=rate.get, reverse=True)[: max(1, len(rate) // 8)]
-    loc = s.q("query{ locations(first: 1){ nodes{ id } } }")["locations"]["nodes"][0]["id"]
+    locs = s.q("query{ locations(first: 20){ nodes{ id name isActive fulfillsOnlineOrders } } }")["locations"]["nodes"]
+    loc = next((l for l in locs if l["isActive"] and l["fulfillsOnlineOrders"]), locs[0])
+    log("stock location:", loc["name"])
+    loc = loc["id"]
     ids = [v["id"] for v in variants]
     inv = {}
     for i in range(0, len(ids), 50):
@@ -213,6 +216,15 @@ def set_stock(s: Shop, variants: list[dict], orders: list[dict]) -> None:
         else:
             q = rnd.randint(1, 6)
         qty.append({"inventoryItemId": item["id"], "locationId": loc, "quantity": q, "changeFromQuantity": None})
+    # items must be stocked at the location first, or quantities set there don't show anywhere
+    for x in qty:
+        r = s.q("""mutation($item: ID!, $loc: ID!, $q: Int, $key: String!){
+            inventoryActivate(inventoryItemId: $item, locationId: $loc, available: $q) @idempotent(key: $key){
+            userErrors { message } } }""", {"item": x["inventoryItemId"], "loc": loc, "q": x["quantity"],
+                                            "key": f"seed-activate-{x['inventoryItemId'].rsplit('/', 1)[-1]}-{loc.rsplit('/', 1)[-1]}"})
+        e = r["inventoryActivate"]["userErrors"]
+        if e and "already" not in str(e).lower():
+            log("activate:", e)
     for i in range(0, len(qty), 100):
         r = s.q("""mutation($input: InventorySetQuantitiesInput!, $key: String!){
             inventorySetQuantities(input: $input) @idempotent(key: $key){ userErrors { code message } } }""",
