@@ -48,7 +48,7 @@ export type Checks = {
 
 export type Settings = Record<string, number>;
 
-export type StyleResult = { id: string; planned: number; sold: number; left: number; sellout: number };
+export type StyleResult = { id: string; planned: number; stock?: number; sold: number; left: number; sellout: number };
 
 export type Variant = {
   mult: number;

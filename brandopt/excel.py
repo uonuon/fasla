@@ -109,27 +109,36 @@ def check_inputs(products, orders, production, couriers) -> list:
     return p
 
 
+def sku_stock(sku: pd.DataFrame) -> np.ndarray:
+    """Pieces already on hand per SKU (unknown = 0), in sku row order."""
+    if "on_hand" not in sku.columns:
+        return np.zeros(len(sku))
+    return pd.to_numeric(sku.on_hand, errors="coerce").fillna(0).clip(lower=0).to_numpy(float)
+
+
 def run_plan(inp: dict, n_scen: int = 200, time_limit_s: int = 60) -> dict:
     s = inp["settings"]
     fc = build_forecast(inp["orders"], inp["production"], inp["products"], owner_estimates=inp["owner"] or None)
-    sku = fc["sku"].merge(inp["products"][["style_id", "name", "color", "size", "unit_cost", "price"]],
-                          on=["style_id", "color", "size"])
+    cols = ["style_id", "name", "color", "size", "unit_cost", "price"]
+    cols += ["on_hand"] if "on_hand" in inp["products"].columns else []
+    sku = fc["sku"].merge(inp["products"][cols], on=["style_id", "color", "size"])
+    stock = sku_stock(sku)
     scen = sample_scenarios(fc, n_scen, seed=3)
     opt = optimize_production(sku, scen, float(s["budget"]), moq_style=int(s["factory_moq"]),
                               min_color=int(s["min_per_color"]), leftover_share=float(s["leftover_share"]),
-                              time_limit_s=time_limit_s)
+                              stock=stock, time_limit_s=time_limit_s)
     q = opt["Q"]
-    ev = evaluate_plan(q, sku, scen, float(s["leftover_share"]))
-    expl = explain_styles(q, sku, scen, float(s["leftover_share"]))
+    ev = evaluate_plan(q, sku, scen, float(s["leftover_share"]), stock=stock)
+    expl = explain_styles(q, sku, scen, float(s["leftover_share"]), stock=stock)
     margin = float(((sku.price - sku.unit_cost) * sku["mean"]).sum() / sku["mean"].sum())
     cour = choose_couriers(inp["orders"], inp["couriers"], margin)
     ret = returns_report(inp["orders"], inp["products"])
-    exp_sold = np.minimum(scen, q).mean(0)
+    exp_sold = np.minimum(scen, q + stock).mean(0)
     prof = weekly_profile(inp["orders"], inp["production"])
     cf = cash_flow(q, sku, exp_sold, float(s["start_cash"]), prof, float(s["deposit_share"]), int(s["lead_weeks"]),
                    int(s["remit_weeks"]), float(cour["table"].fee.mean()), float(ret["overall_refusal"]),
                    float(s["ads_share"]), float(s["fixed_weekly"]))
-    return dict(sku=sku, Q=q, forecast=fc, eval=ev, explain=expl, couriers=cour, returns=ret, cash=cf,
+    return dict(sku=sku, Q=q, stock=stock, forecast=fc, eval=ev, explain=expl, couriers=cour, returns=ret, cash=cf,
                 settings=s, margin=margin, problems=inp["problems"])
 
 

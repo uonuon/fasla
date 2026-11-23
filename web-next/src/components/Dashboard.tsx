@@ -261,7 +261,7 @@ function StyleRows({
   sel: string;
   onSel: (id: string) => void;
 }) {
-  const maxD = Math.max(1, ...rows.map((r) => Math.max(meta[r.id]?.f_p90 ?? 0, r.planned))) * 1.05;
+  const maxD = Math.max(1, ...rows.map((r) => Math.max(meta[r.id]?.f_p90 ?? 0, r.planned + (r.stock ?? 0)))) * 1.05;
   return (
     <>
       {rows.map((r) => {
@@ -280,12 +280,17 @@ function StyleRows({
             </td>
             <td className="r num" style={{ fontWeight: 700 }}>
               {fmt(r.planned)}
+              {(r.stock ?? 0) > 0 && (
+                <span className="tiny muted" style={{ display: "block", fontWeight: 400 }}>
+                  +{fmt(r.stock ?? 0)} in stock
+                </span>
+              )}
             </td>
             <td>
-              <div className="range" role="img" aria-label={`Likely demand ${fmt(m.f_p10)} to ${fmt(m.f_p90)}, planned ${fmt(r.planned)}`}>
+              <div className="range" role="img" aria-label={`Likely demand ${fmt(m.f_p10)} to ${fmt(m.f_p90)}, planned ${fmt(r.planned)}${(r.stock ?? 0) > 0 ? ` plus ${fmt(r.stock ?? 0)} in stock` : ""}`}>
                 <div className="track" />
                 <div className="band" style={{ left: `${(m.f_p10 / maxD) * 100}%`, width: `${((m.f_p90 - m.f_p10) / maxD) * 100}%` }} />
-                <div className="mark" style={{ left: `${(r.planned / maxD) * 100}%` }} />
+                <div className="mark" style={{ left: `${((r.planned + (r.stock ?? 0)) / maxD) * 100}%` }} />
               </div>
             </td>
             <td className="r num">{pct(r.sellout)}</td>
@@ -321,7 +326,8 @@ function StyleDetail({ view, V, id }: { view: PlanView; V: Variant; id: string }
           {m.name}
         </h2>
         <p className="small muted" style={{ margin: "6px 0 0" }}>
-          Make <b style={{ color: "var(--ink)" }}>{fmt(r.planned)}</b> · cost {fmt(m.cost)} · price {fmt(m.price)} EGP
+          Make <b style={{ color: "var(--ink)" }}>{fmt(r.planned)}</b>
+          {(r.stock ?? 0) > 0 && <> on top of {fmt(r.stock ?? 0)} in stock</>} · cost {fmt(m.cost)} · price {fmt(m.price)} EGP
         </p>
       </div>
       <div>

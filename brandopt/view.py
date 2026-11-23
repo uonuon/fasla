@@ -73,7 +73,7 @@ def build_view(inp: dict, n_scen: int = 200, budget_steps=BUDGET_STEPS, time_lim
                brand_name: str = "Your brand", simulated: bool = False, backtest: pd.DataFrame | None = None) -> dict:
     res = run_plan(inp, n_scen=n_scen, time_limit_s=time_limit_s)
     s = res["settings"]
-    sku, fc = res["sku"], res["forecast"]
+    sku, fc, stock = res["sku"], res["forecast"], res["stock"]
     lo = float(s["leftover_share"])
     scen = sample_scenarios(fc, n_scen, seed=3)          # what the planner optimises on
     scen_eval = sample_scenarios(fc, 800, seed=11)       # fresh seasons to score plans fairly
@@ -83,17 +83,17 @@ def build_view(inp: dict, n_scen: int = 200, budget_steps=BUDGET_STEPS, time_lim
     fee = float(res["couriers"]["table"].fee.mean())
 
     def pack(q, budget):
-        ev = evaluate_plan(q, sku, scen_eval, lo)
-        exp_sold = np.minimum(scen_eval, q).mean(0)
+        ev = evaluate_plan(q, sku, scen_eval, lo, stock=stock)
+        exp_sold = np.minimum(scen_eval, q + stock).mean(0)
         cf = cash_flow(q, sku, exp_sold, float(s["start_cash"]), prof, float(s["deposit_share"]), int(s["lead_weeks"]),
                        int(s["remit_weeks"]), fee, refusal, float(s["ads_share"]), float(s["fixed_weekly"]))
-        ex = explain_styles(q, sku, scen_eval, lo)
+        ex = explain_styles(q, sku, scen_eval, lo, stock=stock)
         return dict(budget=_r(budget), profit=_r(ev["profit"]), p10=_r(ev["profit_p10"]), p90=_r(ev["profit_p90"]),
                     revenue=_r(ev["revenue"]), cash_used=_r(ev["production_cost"]), units=int(q.sum()),
                     leftover=_r(ev["leftover_units"]), leftover_cost=_r(ev["leftover_cost"]), lost=_r(ev["lost_units"]),
                     fill=_r(ev["fill_rate"], 3), Q=[int(v) for v in q],
                     cash=[_r(v) for v in cf.balance], cash_min=_r(cf.balance.min()), cash_min_week=int(cf.balance.idxmin()),
-                    style=[dict(id=r.style_id, planned=int(r.planned), sold=_r(r.expected_sold, 1),
+                    style=[dict(id=r.style_id, planned=int(r.planned), stock=int(r.on_hand), sold=_r(r.expected_sold, 1),
                                 left=_r(r.expected_leftover, 1), sellout=_r(r.chance_sell_out, 2)) for r in ex.itertuples()])
 
     variants = []
@@ -102,7 +102,8 @@ def build_view(inp: dict, n_scen: int = 200, budget_steps=BUDGET_STEPS, time_lim
             q = res["Q"]
         else:
             q = optimize_production(sku, scen, base_budget * m, moq_style=int(s["factory_moq"]),
-                                    min_color=int(s["min_per_color"]), leftover_share=lo, time_limit_s=time_limit_s)["Q"]
+                                    min_color=int(s["min_per_color"]), leftover_share=lo, stock=stock,
+                                    time_limit_s=time_limit_s)["Q"]
         variants.append(dict(mult=m, **pack(q, base_budget * m)))
 
     est = inp["owner"] or {sid: v["mean"] for sid, v in fc["styles"].items()}

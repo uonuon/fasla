@@ -66,7 +66,7 @@
   <div class="card hidden" id="step3">
     <h2>Your plan</h2>
     <div class="kpis" id="kpis"></div>
-    <table id="plan" style="margin-top:12px"><thead><tr><th>Style</th><th class="r">Make</th><th class="r">Likely demand</th><th class="r">Chance it sells out</th></tr></thead><tbody></tbody></table>
+    <table id="plan" style="margin-top:12px"><thead><tr><th>Style</th><th class="r">Make</th><th class="r">In stock</th><th class="r">Likely demand</th><th class="r">Chance it sells out</th></tr></thead><tbody></tbody></table>
     <div class="row" style="margin-top:12px"><button id="report">Download the full plan (Excel)</button>
       <span class="muted small">Sizes and colours per style, cash week by week, couriers and returns are in the Excel file. "Likely demand" is the range 8 in 10 seasons fall in.</span></div>
   </div>
@@ -157,7 +157,7 @@ function showPlan(p) {
   const rows = [...(base.style || [])].sort((a, b) => b.planned - a.planned);
   $("plan").querySelector("tbody").innerHTML = rows.map((r) => { const m = meta[r.id] || {};
     const range = m.f_p10 != null ? `${fmt(m.f_p10)}–${fmt(m.f_p90)}` : "–";
-    return `<tr><td>${esc(m.name || r.id)}</td><td class="r"><b>${fmt(r.planned)}</b></td><td class="r">${range}</td>
+    return `<tr><td>${esc(m.name || r.id)}</td><td class="r"><b>${fmt(r.planned)}</b></td><td class="r">${r.stock ? fmt(r.stock) : "–"}</td><td class="r">${range}</td>
     <td class="r">${r.sellout != null ? Math.round(r.sellout * 100) + "%" : "–"}</td></tr>`; }).join("");
   $("step3").classList.remove("hidden");
 }
