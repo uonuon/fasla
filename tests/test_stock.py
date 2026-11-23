@@ -106,3 +106,11 @@ def test_plan_months_plans_the_next_months_only():
     share = r["forecast"]["sku"]["mean"].sum() / year["forecast"]["sku"]["mean"].sum()
     assert 0.15 < share < 0.4                       # ~3 of 12 months (2 + 4 weeks lead time)
     assert r["Q"].sum() < year["Q"].sum() * 0.5
+
+
+def test_window_check_scores_the_last_months():
+    from brandopt.view import window_check
+    inp = read_workbook(_orders_csv())["inp"]
+    c = window_check(inp)
+    assert c and c["kind"] == "window" and c["styles"] == 3
+    assert 0 <= c["style_error"] < 1 and c["repeat_last_error"] >= 0

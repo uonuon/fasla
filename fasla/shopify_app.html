@@ -71,6 +71,7 @@
   <div class="card hidden" id="step3">
     <h2>Your plan</h2>
     <div class="kpis" id="kpis"></div>
+    <p class="small muted" id="accuracy"></p>
     <table id="plan" style="margin-top:12px"><thead><tr><th>Style</th><th class="r">Make</th><th class="r">In stock</th><th class="r">Likely demand</th><th class="r">Chance it sells out</th></tr></thead><tbody></tbody></table>
     <div class="row" style="margin-top:12px"><button id="report">Download the full plan (Excel)</button>
       <span class="muted small">Sizes and colours per style, cash week by week, couriers and returns are in the Excel file. "Likely demand" is the range 8 in 10 seasons fall in.</span></div>
@@ -160,6 +161,9 @@ function showPlan(p) {
   const base = v.variants[v.base]; const meta = Object.fromEntries((v.styles || []).map((s) => [s.id, s]));
   $("kpis").innerHTML = [["Pieces to make", fmt(base.units)], ["Expected profit", `${fmt(base.profit)} ${currency}`],
     ["Cash needed", `${fmt(base.cash_used)} ${currency}`]].map(([k, x]) => `<div class="kpi"><span class="muted small">${k}</span><b>${x}</b></div>`).join("");
+  const ck = v.check;
+  $("accuracy").textContent = ck ? `Tested on your store: forecasting ${ck.season} from the months before them, Fasla was `
+    + `${Math.round(ck.style_error * 100)}% off per style, vs ${Math.round(ck.repeat_last_error * 100)}% for repeating the months just before.` : "";
   const rows = [...(base.style || [])].sort((a, b) => b.planned - a.planned);
   $("plan").querySelector("tbody").innerHTML = rows.map((r) => { const m = meta[r.id] || {};
     const range = m.f_p10 != null ? `${fmt(m.f_p10)}–${fmt(m.f_p90)}` : "–";
