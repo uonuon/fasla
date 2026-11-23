@@ -286,6 +286,20 @@ def order_rows(orders: list[dict]) -> list[dict]:
     return rows
 
 
+WINDOW_WARNING = ("Shopify showed Fasla only the last 60 days of orders (new apps get more after Shopify approves "
+                  "them). If your store is older, upload your full orders export below for a much better plan.")
+
+
+def only_recent_window(orders: list[dict], days: int = 61) -> bool:
+    """True when every order Shopify returned was created in the last ~60 days: the default window an app sees
+    without the read_all_orders scope (a store younger than that looks the same)."""
+    created = [o.get("createdAt") for o in orders if o.get("createdAt")]
+    if not created:
+        return False
+    oldest = min(datetime.fromisoformat(c.replace("Z", "+00:00")) for c in created)
+    return (datetime.now(timezone.utc) - oldest).days <= days
+
+
 def fetch_orders(admin: Admin, since: date, max_orders: int = 20000) -> list[dict]:
     # processed_at, not created_at: orders imported from another platform keep their real date there.
     q = f"processed_at:>={since.isoformat()}"

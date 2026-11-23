@@ -252,3 +252,13 @@ def test_import_steps_down_when_shopify_says_query_too_costly():
                   client=httpx.Client(transport=httpx.MockTransport(fake.handler)))
     got = fetch_orders(admin, date(2020, 1, 1))
     assert len(got) == len(fake.nodes)
+
+
+def test_only_recent_window_spots_the_60_day_limit():
+    from datetime import datetime, timedelta, timezone
+    from fasla.shopify import only_recent_window
+    now = datetime.now(timezone.utc)
+    recent = [{"createdAt": (now - timedelta(days=d)).isoformat()} for d in (1, 20, 59)]
+    assert only_recent_window(recent)
+    assert not only_recent_window(recent + [{"createdAt": (now - timedelta(days=200)).isoformat()}])
+    assert not only_recent_window([])

@@ -309,7 +309,10 @@ def shopify_import(body: ImportIn, request: Request, user: User = Depends(curren
     if not rows:
         return JSONResponse({"ok": False, "errors": ["We didn't find any orders in this period."]}, status_code=422)
     data = shp.rows_to_csv(rows)
-    return _plan_from_bytes(b[0], user, data, f"Shopify orders since {since.isoformat()}.csv", "csv")
+    res = _plan_from_bytes(b[0], user, data, f"Shopify orders since {since.isoformat()}.csv", "csv")
+    if isinstance(res, dict) and body.days > 70 and shp.only_recent_window(orders):
+        res["checks"].setdefault("warnings", []).insert(0, shp.WINDOW_WARNING)
+    return res
 
 
 @app.post("/webhooks/shopify")
