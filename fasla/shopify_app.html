@@ -55,6 +55,42 @@
     </div>
   </div>
 
+  <div class="card hidden" id="modeCard">
+    <div class="row">
+      <label><b>What do you make?</b>
+        <select id="mode">
+          <option value="clothing">Clothing: styles in sizes and colours</option>
+          <option value="batch">Food, drinks, oils or beauty: made in batches</option>
+        </select></label>
+      <span class="small muted" id="modeWhy"></span>
+    </div>
+  </div>
+
+  <div class="card hidden" id="step2b">
+    <h2>2. Tell Fasla how you produce</h2>
+    <p class="muted small">Leave a box empty to use the default. The more you fill in, the better the plan fits your kitchen or workshop.</p>
+    <div class="row" style="margin:8px 0 12px">
+      <label>Months to show <select id="b_months"><option value="3">3</option><option value="4" selected>4</option><option value="6">6</option></select></label>
+      <label>Budget for this batch <span class="cur"></span> <input type="number" id="b_budget" min="0" step="100" placeholder="no limit"></label>
+    </div>
+    <div style="overflow-x:auto">
+    <table id="bprods"><thead><tr><th>Product</th><th class="r">Sold last 12 months</th><th class="r">In stock</th>
+      <th class="r">Cost to make one</th><th class="r" title="You make it in multiples of this, e.g. 30 jars per pot">Batch size</th>
+      <th class="r" title="Months until it expires; 0 = doesn't expire">Shelf life (months)</th>
+      <th class="r" title="Days from starting a batch to having it ready to sell">Ready in (days)</th>
+      <th class="r" title="How often you produce it">Make every (days)</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="primary" id="brun">Plan my next batches</button><span id="brunMsg" class="small"></span></div>
+  </div>
+
+  <div class="card hidden" id="step3b">
+    <h2>Your next batches</h2>
+    <div class="kpis" id="bkpis"></div>
+    <ul id="bnotes" class="small muted"></ul>
+    <table id="bplan" style="margin-top:12px"><thead><tr><th>Product</th><th class="r">Make now</th><th class="r">In stock</th>
+      <th class="r">Likely sales, next 30 days</th><th class="r">Then per batch</th><th class="r">Chance you don't run out</th></tr></thead><tbody></tbody></table>
+  </div>
+
   <div class="card hidden" id="step2">
     <h2>2. Check costs and budget</h2>
     <p class="muted small" id="stats"></p>
@@ -123,7 +159,7 @@ $("import").onclick = async () => {
   $("import").disabled = true; $("importMsg").textContent = "Reading your orders… this can take a minute for big stores.";
   try {
     const res = await call("/api/shopify/import", { method: "POST", body: JSON.stringify({ days: +$("days").value }) });
-    planId = res.plan_id; showChecks(res.checks, res.settings || {});
+    planId = res.plan_id; showChecks(res.checks, res.settings || {}); showMode(res);
     $("importMsg").innerHTML = `<span class="ok">Done.</span>`;
   } catch (e) { $("importMsg").innerHTML = `<span class="err">${e.message}</span>`; }
   $("import").disabled = false;
@@ -136,10 +172,75 @@ $("uploadBtn").onclick = async () => {
   try {
     const fd = new FormData(); fd.append("file", f);
     const res = await call(`/api/brands/${session.brand_id}/uploads`, { method: "POST", body: fd });
-    planId = res.plan_id; showChecks(res.checks, res.settings || {});
+    planId = res.plan_id; showChecks(res.checks, res.settings || {}); showMode({});
     $("importMsg").innerHTML = `<span class="ok">Done.</span>`;
   } catch (e) { $("importMsg").innerHTML = `<span class="err">${e.message}</span>`; }
   $("uploadBtn").disabled = false;
+};
+
+// ---- mode: clothing or batch (food, oils, beauty); Fasla guesses, the owner decides ----
+let bproducts = [];
+function setMode(m) {
+  $("mode").value = m;
+  const batch = m === "batch";
+  $("step2").classList.toggle("hidden", batch); $("step3").classList.add("hidden");
+  $("step2b").classList.toggle("hidden", !batch); $("step3b").classList.add("hidden");
+}
+$("mode").onchange = () => setMode($("mode").value);
+
+function showMode(res) {
+  if (!res.mode) { $("modeCard").classList.add("hidden"); setMode("clothing"); return; }
+  bproducts = res.batch_products || [];
+  const m = res.mode;
+  $("modeWhy").textContent = m.mode === "clothing"
+    ? `Most of your orders have clothing sizes (${Math.round(m.sized_share * 100)}%), so we picked clothing.`
+    : "Your orders are mostly one size or pack sizes (like 500 ml), so we picked batch production.";
+  $("modeCard").classList.remove("hidden");
+  const groups = {};
+  for (const p of bproducts) {
+    const g = groups[p.product] || (groups[p.product] = { sold: 0, stock: null, cost: p.cost, kinds: [] });
+    g.sold += p.sold; if (p.stock != null) g.stock = (g.stock || 0) + p.stock;
+    const kind = [p.variant, p.pack].filter((x) => x && x !== "-").join(" · "); if (kind) g.kinds.push(kind);
+  }
+  const tb = $("bprods").querySelector("tbody"); tb.innerHTML = "";
+  for (const [name, g] of Object.entries(groups)) {
+    const tr = document.createElement("tr"); tr.dataset.product = name;
+    const num = (k, ph, v = "") => `<td class="r"><input type="number" min="0" step="any" data-k="${k}" value="${v}" placeholder="${ph}" style="width:84px"></td>`;
+    tr.innerHTML = `<td>${esc(name)}<div class="small muted">${esc(g.kinds.slice(0, 4).join(", "))}</div></td>
+      <td class="r">${fmt(g.sold)}</td><td class="r">${g.stock == null ? "–" : fmt(g.stock)}</td>
+      ${num("cost", "needed", g.cost ?? "")}${num("batch_multiple", "1")}${num("shelf_life_months", "0")}${num("lead_time_days", "14")}${num("make_every_days", "30")}`;
+    tb.appendChild(tr);
+  }
+  setMode(m.mode);
+}
+
+$("brun").onclick = async () => {
+  const products = {}; let missing = 0;
+  for (const tr of $("bprods").querySelectorAll("tbody tr")) {
+    const v = {};
+    for (const i of tr.querySelectorAll("input")) if (i.value !== "") v[i.dataset.k] = +i.value;
+    if (v.cost == null) missing++;
+    products[tr.dataset.product] = v;
+  }
+  if (missing) { $("brunMsg").innerHTML = `<span class="err">Add the cost to make each product (${missing} missing).</span>`; return; }
+  const body = { plan_id: planId, products, months_ahead: +$("b_months").value };
+  if ($("b_budget").value !== "") body.budget = +$("b_budget").value;
+  $("brun").disabled = true; $("brunMsg").textContent = "Planning…";
+  try {
+    const r = await call("/api/shopify/batch-plan", { method: "POST", body: JSON.stringify(body) });
+    const make = r.plan.reduce((a, x) => a + (x.make || 0), 0);
+    $("bkpis").innerHTML = [["Units to make now", fmt(make)], ["Cost of this batch", `${fmt(r.total_cost)} ${currency}`], ["Batch day", r.start]]
+      .map(([k, x]) => `<div class="kpi"><span class="muted small">${k}</span><b>${x}</b></div>`).join("");
+    $("bnotes").innerHTML = (r.notes || []).map((n) => `<li>${esc(n)}</li>`).join("");
+    const rows = [...r.plan].sort((a, b) => (b.make || 0) - (a.make || 0));
+    $("bplan").querySelector("tbody").innerHTML = rows.map((x) => {
+      const name = [x.product, x.variant, x.pack].filter((s) => s && s !== "-").join(" · ");
+      return `<tr><td>${esc(name)}${x.note ? `<div class="small muted">${esc(x.note)}</div>` : ""}</td><td class="r"><b>${fmt(x.make)}</b></td>
+        <td class="r">${fmt(x.on_hand)}</td><td class="r">${fmt(x.next_30_days)}</td><td class="r">${fmt(x.then_per_batch)}</td>
+        <td class="r">${x.chance_no_stockout != null ? Math.round(x.chance_no_stockout * 100) + "%" : "–"}</td></tr>`; }).join("");
+    $("step3b").classList.remove("hidden"); $("brunMsg").textContent = "";
+  } catch (e) { $("brunMsg").innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  $("brun").disabled = false;
 };
 
 const FIELDS = ["budget", "start_cash", "factory_moq", "min_per_color"];
