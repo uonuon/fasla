@@ -41,6 +41,8 @@ def own_data_check(inp: dict, fc: dict) -> dict | None:
     seasons = sorted(cs.season.unique())
     if len(seasons) < 3:   # with one earlier season there is no trend to learn: the test says nothing useful
         return None
+    if fc.get("coverage", {}).get(seasons[-1], 1.0) < 0.9:   # the latest season is still running: nothing to score yet
+        return None
     try:
         o, prod, labels = assign_seasons(inp["orders"], inp["production"])
         last = seasons[-1]

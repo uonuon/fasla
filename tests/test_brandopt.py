@@ -130,3 +130,13 @@ def test_forecast_accuracy_guardrail():
     oo, tp = d.loc["orders only"], d.loc["template (production known)"]
     assert abs(oo.bias) < 0.12 and oo.style_wape < 0.20, oo.to_dict()
     assert abs(tp.bias) < 0.08 and tp.style_wape < 0.23, tp.to_dict()
+
+
+def test_running_season_is_not_read_as_a_drop(world_hist):
+    """An export taken mid-season (the usual case for orders-only uploads and Shopify) must not shrink the plan.
+    Before season coverage: cutting the latest season after 6 of its 16 weeks cut the forecast by ~40%."""
+    w, h = world_hist
+    full = build_forecast(h["orders"], h["production"], h["products"])["sku"]["mean"].sum()
+    cut = h["orders"][h["orders"].date < pd.Timestamp("2025-11-12")]
+    part = build_forecast(cut, h["production"], h["products"])["sku"]["mean"].sum()
+    assert 0.8 < part / full < 1.25, (part, full)

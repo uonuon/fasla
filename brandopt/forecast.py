@@ -66,6 +66,56 @@ def assign_seasons(orders: pd.DataFrame, production: pd.DataFrame):
     return o, prod.drop(columns=[c for c in ("_y",) if c in prod.columns]), labels
 
 
+def season_coverage(orders: pd.DataFrame, production: pd.DataFrame) -> dict:
+    """Share of each season's normal demand that falls inside the dates we have orders for.
+
+    Order exports rarely line up with seasons: the history starts mid-season and the current season is
+    still running. Read as-is, a five-month-old season looks like a 50% drop and the next plan comes out
+    far too small. Coverage = (expected demand in the observed part of the season) / (expected demand in
+    the whole season), from a month-of-year profile of the brand's own sales. With one year of history the
+    profile also carries that year's growth, which makes coverage a little high (forecast a little low):
+    the safe direction for production."""
+    if orders.empty:
+        return {}
+    d0, d1 = orders.date.min().normalize(), orders.date.max().normalize()
+    sold = orders[orders.status.isin(SOLD_STATUSES)]
+    o, prod, labels = assign_seasons(sold, production)
+    if o.empty:
+        return {}
+    # season bounds
+    bounds = {}
+    for i in range(len(labels)):
+        di = o.loc[o.season == i, "date"]
+        if not len(di):
+            continue
+        if "season_start" in production.columns and production["season_start"].notna().all():
+            st = production.groupby(production["season"].astype(str))["season_start"].min().map(pd.to_datetime)
+            st = st.sort_values()
+            start = st.iloc[i]
+            end = st.iloc[i + 1] if i + 1 < len(st) else start + pd.DateOffset(years=1)
+        else:
+            f = di.min()
+            y = f.year if f.month >= 7 else f.year - 1
+            start, end = pd.Timestamp(y, 7, 1), pd.Timestamp(y + 1, 7, 1)
+        bounds[i] = (start, end)
+    days = pd.date_range(min(b[0] for b in bounds.values()), max(b[1] for b in bounds.values()) - pd.Timedelta(days=1))
+    seen = (days >= d0) & (days <= d1)
+    # month-of-year profile: average daily sales per calendar month over the days we observed
+    daily = sold.groupby(sold.date.dt.normalize()).qty.sum().reindex(days[seen], fill_value=0)
+    by_m = daily.groupby(daily.index.month).mean()
+    rate = by_m.reindex(range(1, 13))
+    rate = rate.fillna(rate.mean() if rate.notna().any() else 1.0).clip(lower=1e-6)
+    out = {}
+    for i, (start, end) in bounds.items():
+        m = (days >= start) & (days < end)
+        r = rate.reindex(days[m].month).to_numpy()
+        c = float(np.clip(r[seen[m]].sum() / r.sum(), 0.0, 1.0))
+        # the last days of an export sit in a partly-seen month whose rate is an average, so a finished season
+        # still reads ~0.97; small gaps are noise, not missing demand
+        out[i] = 1.0 if c >= 0.93 else c
+    return out
+
+
 def weekly_profile(orders: pd.DataFrame, production: pd.DataFrame, weeks: int = 16) -> np.ndarray:
     """Share of a season's demand that arrives in each week, from SKUs that never sold out."""
     o, prod, _ = assign_seasons(orders[orders.status.isin(SOLD_STATUSES)], production)
@@ -114,7 +164,16 @@ def build_forecast(orders: pd.DataFrame, production: pd.DataFrame, products: pd.
                    new_style_units: dict | None = None, owner_estimates: dict | None = None,
                    owner_cv: float = 0.30) -> dict:
     """Mean demand per SKU for next season + parameters to sample scenarios."""
-    cs = corrected_sales(orders, production)
+    cs_raw = corrected_sales(orders, production)
+    # put partly-observed seasons on a full-season footing (see season_coverage); a season we saw less
+    # than 15% of says too little to keep
+    cov = season_coverage(orders, production)
+    cs = cs_raw.copy()
+    keep = [s for s in sorted(cs.season.unique()) if cov.get(s, 1.0) >= 0.15] or [max(cs.season.unique())]
+    cs = cs[cs.season.isin(keep)]
+    scale = cs.season.map(lambda s: 1.0 / max(cov.get(s, 1.0), 0.15))
+    cs["sold"] = cs.sold * scale
+    cs["demand_est"] = cs.demand_est * scale
     seasons = sorted(cs.season.unique())
     last = seasons[-1]
     st_tot = cs.groupby(["season", "style_id"]).demand_est.sum().unstack(0)
@@ -122,6 +181,7 @@ def build_forecast(orders: pd.DataFrame, production: pd.DataFrame, products: pd.
     # brand growth, shrunk 20% toward "no growth". Measured on sizes that stayed in stock in both of the last
     # two seasons: their sales are real demand, while corrected sell-outs carry estimation noise that
     # inflated growth (simulated brands: 1.19 estimated vs 1.15 true; with this rule 1.15).
+    growth_measured = growth is None
     if growth is None and len(seasons) >= 2:
         a = cs[cs.season == seasons[-2]].set_index(["style_id", "color", "size"])
         b = cs[cs.season == last].set_index(["style_id", "color", "size"])
@@ -137,6 +197,9 @@ def build_forecast(orders: pd.DataFrame, production: pd.DataFrame, products: pd.
             growth = float(np.clip(0.8 * ratio + 0.2 * 1.0, 0.7, 1.6))
         else:
             growth = 1.0
+    # growth read off a young season is mostly extrapolation: pull it toward "no growth" in proportion
+    if growth_measured and cov.get(last, 1.0) < 0.9:
+        growth = float(1 + (growth - 1) * cov.get(last, 1.0) / 0.9)
     # forecast error cv from season-to-season log changes across styles
     if cv_existing is None:
         if len(seasons) >= 2:
@@ -145,6 +208,10 @@ def build_forecast(orders: pd.DataFrame, production: pd.DataFrame, products: pd.
             cv_existing = float(np.clip(np.sqrt(np.mean(lr ** 2) + 0.15 ** 2), 0.18, 0.6))
         else:
             cv_existing = 0.35
+
+    # and widen the uncertainty, so the optimizer hedges instead of betting on a young season's pace
+    if cov.get(last, 1.0) < 0.9:
+        cv_existing = float(min(0.6, np.sqrt(cv_existing ** 2 + (0.35 * (1 - cov.get(last, 1.0))) ** 2)))
 
     cat = products.drop_duplicates("style_id").set_index("style_id").category
     all_sizes = sizes_in(products)
@@ -169,6 +236,10 @@ def build_forecast(orders: pd.DataFrame, production: pd.DataFrame, products: pd.
         hist = cs[(cs.style_id == sid)]
         if len(hist):
             w = np.array([0.35, 0.65]) if len(seasons) >= 2 and seasons[-2] in hist.season.values else np.array([0, 1.0])
+            if w[0] > 0 and cov.get(last, 1.0) < 0.6:
+                # a young current season is a noisy estimate even after scaling: lean on the previous one more
+                w = np.array([0.35, 0.65 * cov.get(last, 1.0) / 0.6])
+                w = w / w.sum()
             tot_last = hist[hist.season == last].demand_est.sum()
             tot_prev = hist[hist.season == seasons[-2]].demand_est.sum() if len(seasons) >= 2 else 0
             if tot_prev > 0:
@@ -211,7 +282,7 @@ def build_forecast(orders: pd.DataFrame, production: pd.DataFrame, products: pd.
             rows.append(dict(style_id=sid, color=colors[ci], size=sizes[si],
                              mean=mean_tot * col_sh[ci] * size_sh[si] / max(tot_share, 1e-9)))
     fc = pd.DataFrame(rows)
-    return dict(sku=fc, styles=style_info, growth=growth, cv_existing=cv_existing, corrected=cs)
+    return dict(sku=fc, styles=style_info, growth=growth, cv_existing=cv_existing, corrected=cs_raw, coverage=cov)
 
 
 def sample_scenarios(fc: dict, n: int = 300, seed: int = 1) -> np.ndarray:
