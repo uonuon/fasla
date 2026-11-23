@@ -487,6 +487,7 @@ const MAIN: FieldDef[] = [
   { key: "start_cash", label: "Cash in the bank today", hint: "So we can warn you before it runs out (EGP)", kind: "money" },
   { key: "factory_moq", label: "Factory minimum per style", hint: "Pieces; 0 if there's no minimum", kind: "int" },
   { key: "lead_weeks", label: "Weeks until stock arrives", hint: "From placing the order to your warehouse", kind: "int" },
+  { key: "plan_months", label: "Plan for the next … months", hint: "0 plans a whole season; 3 if you restock all year (orders files)", kind: "int" },
 ];
 const MORE: FieldDef[] = [
   { key: "deposit_share", label: "Paid to the factory up front", hint: "The rest is paid when stock arrives", kind: "pct" },

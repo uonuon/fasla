@@ -96,3 +96,13 @@ def test_shopify_lines_without_size_are_kept_as_one_size():
     rows = order_rows([o])
     assert [(r["style"], r["size"], r["color"]) for r in rows] == [
         ("Tote Bag", "One size", "Beige"), ("Silk Scarf", "One size", ""), ("Tote Bag", "41", "Black")]
+
+
+def test_plan_months_plans_the_next_months_only():
+    inp, year = _plan(_orders_csv())
+    inp2 = read_workbook(_orders_csv())["inp"]
+    inp2["settings"].update(budget=5_000_000, factory_moq=0, min_per_color=0, plan_months=2, lead_weeks=4)
+    r = run_plan(inp2, n_scen=60, time_limit_s=10)
+    share = r["forecast"]["sku"]["mean"].sum() / year["forecast"]["sku"]["mean"].sum()
+    assert 0.15 < share < 0.4                       # ~3 of 12 months (2 + 4 weeks lead time)
+    assert r["Q"].sum() < year["Q"].sum() * 0.5

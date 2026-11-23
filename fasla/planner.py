@@ -26,7 +26,7 @@ NUMERIC = {"Products": ["unit_cost", "price"], "Orders": ["qty"], "Production": 
            "Couriers": ["fee", "return_fee"]}
 SETTING_KEYS = [k for k, _, _ in SETTINGS]
 EDITABLE = {  # key: (min, max, kind)
-    "budget": (100, 1e9, float), "factory_moq": (0, 100_000, int), "min_per_color": (0, 100_000, int),
+    "budget": (100, 1e9, float), "plan_months": (0, 24, float), "factory_moq": (0, 100_000, int), "min_per_color": (0, 100_000, int),
     "leftover_share": (0.0, 0.95, float), "start_cash": (-1e9, 1e10, float), "deposit_share": (0.0, 1.0, float),
     "lead_weeks": (0, 52, int), "remit_weeks": (0, 12, int), "ads_share": (0.0, 0.9, float), "fixed_weekly": (0, 1e8, float),
 }
