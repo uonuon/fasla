@@ -6,6 +6,7 @@ import { apiJson, postJson } from "@/lib/api";
 import { TERMS_VERSION } from "@/lib/legal";
 import { getSession, onAuthChange, signOut, type Session } from "@/lib/session";
 import { track } from "@/lib/track";
+import LogoMark from "@/components/LogoMark";
 
 type Me = { email: string; admin: boolean; terms_version: string; consent: { terms_version: string; improve_data: boolean } | null };
 
@@ -149,9 +150,7 @@ export function TopBar({
       <ConsentGate />
       <div className="topbar-in">
         <Link href="/" className="logo" aria-label="Fasla home">
-          <span className="logo-mark" aria-hidden="true">
-            F
-          </span>
+          <LogoMark />
           <span className="logo-word">Fasla</span>
         </Link>
         {brandName && (
