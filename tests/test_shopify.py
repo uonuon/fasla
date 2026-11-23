@@ -81,9 +81,14 @@ class FakeShopify:
                                                       "currentAppInstallation": {"activeSubscriptions": []}}})
         assert "customer" not in q["query"].lower() and "email" not in q["query"].lower() and "address" not in q["query"].lower()
         after = int(q["variables"].get("after") or 0)
-        page = self.nodes[after:after + 100]
-        nxt = after + 100 < len(self.nodes)
-        return httpx.Response(200, json={"data": {"orders": {"nodes": page, "pageInfo": {"hasNextPage": nxt, "endCursor": str(after + 100)}}},
+        first = int(q["variables"].get("first") or 100)
+        if first > getattr(self, "max_first", 1000):
+            return httpx.Response(200, json={"errors": [{"message": f"Query cost is {first * 103}, which exceeds the single "
+                                                                    "query max cost limit (1000).",
+                                                         "extensions": {"code": "MAX_COST_EXCEEDED"}}]})
+        page = self.nodes[after:after + first]
+        nxt = after + first < len(self.nodes)
+        return httpx.Response(200, json={"data": {"orders": {"nodes": page, "pageInfo": {"hasNextPage": nxt, "endCursor": str(after + first)}}},
                                          "extensions": {"cost": {"throttleStatus": {"currentlyAvailable": 1000, "restoreRate": 100}}}})
 
 
@@ -236,3 +241,14 @@ def test_order_rows_prefer_processed_at():
          "lineItems": {"nodes": [{"title": "Tee", "quantity": 1, "currentQuantity": 1, "variantTitle": "M / Black",
                                   "originalUnitPriceSet": {"shopMoney": {"amount": "450"}}}]}}
     assert order_rows([o])[0]["date"] == "2026-03-15"
+
+
+def test_import_steps_down_when_shopify_says_query_too_costly():
+    from fasla.shopify import Admin, fetch_orders
+    from datetime import date
+    fake = FakeShopify()
+    fake.max_first = 20
+    admin = Admin("nile-thread.myshopify.com", "shpat_x", "2026-10",
+                  client=httpx.Client(transport=httpx.MockTransport(fake.handler)))
+    got = fetch_orders(admin, date(2020, 1, 1))
+    assert len(got) == len(fake.nodes)

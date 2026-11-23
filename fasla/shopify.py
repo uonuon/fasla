@@ -198,12 +198,12 @@ class Admin:
 SHOP_QUERY = """{ shop { name currencyCode ianaTimezone } currentAppInstallation { activeSubscriptions { name status test } } }"""
 
 ORDERS_QUERY = """
-query Orders($q: String!, $after: String) {
-  orders(first: 100, after: $after, query: $q, sortKey: PROCESSED_AT) {
+query Orders($q: String!, $after: String, $first: Int!, $lines: Int!) {
+  orders(first: $first, after: $after, query: $q, sortKey: PROCESSED_AT) {
     pageInfo { hasNextPage endCursor }
     nodes {
       name createdAt processedAt cancelledAt displayFulfillmentStatus
-      lineItems(first: 100) {
+      lineItems(first: $lines) {
         nodes {
           title quantity currentQuantity sku variantTitle
           originalUnitPriceSet { shopMoney { amount } }
@@ -272,8 +272,18 @@ def fetch_orders(admin: Admin, since: date, max_orders: int = 20000) -> list[dic
     # processed_at, not created_at: orders imported from another platform keep their real date there.
     q = f"processed_at:>={since.isoformat()}"
     out, after = [], None
+    # Shopify caps what one request may cost; big pages of orders x line items can exceed it. Start large and
+    # step down if Shopify refuses (the cap and its arithmetic have changed between API versions).
+    sizes = [(100, 50), (40, 30), (15, 25)]
     while True:
-        d = admin.query(ORDERS_QUERY, {"q": q, "after": after})["orders"]
+        for i, (first, lines) in enumerate(sizes):
+            try:
+                d = admin.query(ORDERS_QUERY, {"q": q, "after": after, "first": first, "lines": lines})["orders"]
+                sizes = sizes[i:]
+                break
+            except ShopifyError as e:
+                if "cost" not in e.message.lower() or i == len(sizes) - 1:
+                    raise
         out.extend(d["nodes"])
         if not d["pageInfo"]["hasNextPage"] or len(out) >= max_orders:
             return out[:max_orders]
