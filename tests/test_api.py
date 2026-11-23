@@ -242,7 +242,7 @@ def test_batch_plan_flow(client):
                     files={"file": ("fasla_batch_example.xlsx", io.BytesIO(example), "application/octet-stream")})
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["total_cost"] > 0 and len(body["plan"]) == 8 and body["materials"]
+    assert body["total_cost"] > 0 and len(body["plan"]) == 7 and body["materials"]
     assert sum(p["make"] for p in body["plan"]) > 0
     r = client.post("/api/batch/report", headers=h,
                     files={"file": ("x.xlsx", io.BytesIO(example), "application/octet-stream")})

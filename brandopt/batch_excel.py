@@ -84,9 +84,8 @@ def write_template(path: str, example: bool = True) -> None:
 
 def _food_materials():
     bom = pd.DataFrame([
-        ("Bone Broth", "*", "500 ml", "Jar 500 ml", 1), ("Bone Broth", "*", "1 L", "Jar 1 L", 1),
-        ("Bone Broth", "Beef", "500 ml", "Beef bones (kg)", 0.6), ("Bone Broth", "Beef", "1 L", "Beef bones (kg)", 1.2),
-        ("Bone Broth", "Chicken", "500 ml", "Chicken bones (kg)", 0.5),
+        ("Bone Broth", "*", "500 ml", "Jar 500 ml", 1), ("Bone Broth", "*", "500 ml", "Beef bones (kg)", 0.6),
+        ("Bone Broth", "Veggie", "500 ml", "Vegetables (kg)", 0.15),
         ("Fermented Garlic Honey", "*", "250 g", "Jar 250 g", 1), ("Fermented Garlic Honey", "*", "500 g", "Jar 500 g", 1),
         ("Fermented Garlic Honey", "*", "250 g", "Raw honey (kg)", 0.2), ("Fermented Garlic Honey", "*", "500 g", "Raw honey (kg)", 0.4),
         ("Fermented Garlic Honey", "*", "250 g", "Garlic (kg)", 0.06), ("Fermented Garlic Honey", "*", "500 g", "Garlic (kg)", 0.12),
@@ -94,10 +93,10 @@ def _food_materials():
         ("*", "*", "*", "Label", 1),
     ], columns=["product", "variant", "pack", "material", "qty_per_unit"])
     mats = pd.DataFrame([
-        ("Jar 500 ml", 40, 10, 24, 14), ("Jar 1 L", 20, 10, 12, 20), ("Jar 250 g", 60, 10, 24, 9),
+        ("Jar 500 ml", 40, 10, 24, 14), ("Vegetables (kg)", 0, 1, 1, 25), ("Jar 250 g", 60, 10, 24, 9),
         ("Jar 500 g", 30, 10, 24, 13), ("Jar 200 g", 50, 10, 24, 8), ("Jar 400 g", 30, 10, 24, 11),
         ("Raw honey (kg)", 10, 7, 5, 220), ("Garlic (kg)", 2, 2, 1, 60),
-        ("Beef bones (kg)", 0, 2, 5, 90), ("Chicken bones (kg)", 0, 2, 5, 40), ("Label", 300, 7, 500, 1.2),
+        ("Beef bones (kg)", 0, 2, 5, 90), ("Label", 300, 7, 500, 1.2),
     ], columns=["material", "on_hand", "lead_time_days", "order_multiple", "unit_cost"])
     return bom, mats
 

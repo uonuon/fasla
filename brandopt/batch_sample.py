@@ -27,9 +27,9 @@ PRODUCTS = [
 # product, variant, pack, price, unit_cost, share, batch_min_amount, multiple, shelf life (months), lead days,
 # make every (days)
 FOOD = [
-    ("Bone Broth", "Beef", "500 ml", 260, 110, 0.20, 10000, 1, 3, 2, 7),
-    ("Bone Broth", "Beef", "1 L", 480, 205, 0.10, 10000, 1, 3, 2, 7),
-    ("Bone Broth", "Chicken", "500 ml", 220, 85, 0.14, 10000, 1, 3, 2, 7),
+    # one pot = 30 jars; plain and veggie are cooked in two pots side by side every 10 days, sold frozen
+    ("Bone Broth", "Plain", "500 ml", 260, 110, 0.26, 0, 30, 4, 1, 10),
+    ("Bone Broth", "Veggie", "500 ml", 280, 125, 0.18, 0, 30, 4, 1, 10),
     ("Fermented Garlic Honey", "-", "250 g", 350, 150, 0.18, 5000, 1, 12, 30, 30),
     ("Fermented Garlic Honey", "-", "500 g", 650, 280, 0.09, 5000, 1, 12, 30, 30),
     ("Beef Tallow", "Plain", "200 g", 240, 90, 0.10, 4000, 1, 6, 5, 30),
