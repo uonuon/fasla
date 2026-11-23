@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CONTACT_EMAIL } from "@/lib/legal";
+import LogoMark from "@/components/LogoMark";
 
 const pains = [
   ["Money stuck in leftovers", "Sizes and colours that didn't sell sit in the warehouse, discounted at the end of the season."],
@@ -41,9 +42,7 @@ export default function Landing() {
       <header className="topbar" style={{ position: "static" }}>
         <div className="topbar-in" style={{ maxWidth: 1120 }}>
           <span className="logo">
-            <span className="logo-mark" aria-hidden="true">
-              F
-            </span>
+            <LogoMark />
             <span className="logo-word">Fasla</span>
           </span>
           <div className="spacer" />

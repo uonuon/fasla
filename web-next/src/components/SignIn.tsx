@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { getConfig, sendReset, signIn, signInWithGoogle, signUp } from "@/lib/session";
+import LogoMark from "@/components/LogoMark";
 
 type Mode = "in" | "up" | "reset";
 
@@ -50,9 +51,7 @@ export default function SignIn({ initialMode = "in", after = "" }: { initialMode
   return (
     <main className="auth">
       <div className="logo" style={{ justifyContent: "center", marginBottom: 20 }}>
-        <span className="logo-mark" aria-hidden="true">
-          F
-        </span>
+        <LogoMark />
         <span className="logo-word">Fasla</span>
       </div>
       <div className="card" style={{ padding: 28 }}>
