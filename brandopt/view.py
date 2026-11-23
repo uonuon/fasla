@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from .excel import run_plan
-from .forecast import assign_seasons, build_forecast, sample_scenarios, sizes_in, weekly_profile
+from .forecast import apply_window, assign_seasons, build_forecast, sample_scenarios, sizes_in, weekly_profile
 from .insights import cash_flow
 from .production import evaluate_plan, explain_styles, optimize_production
 
@@ -61,6 +61,39 @@ def own_data_check(inp: dict, fc: dict) -> dict | None:
         return dict(season=str(labels[last]), styles=len(actual),
                     style_error=_r(err(pred), 3), repeat_last_error=_r(err(prev), 3),
                     total_bias=_r(float(pred.sum() / actual.sum() - 1), 3), rows=rows)
+    except Exception:  # noqa: BLE001 - a check that can't run shouldn't block the plan
+        return None
+
+
+def window_check(inp: dict, months: int = 3) -> dict | None:
+    """For stores with a year or so of history (most Shopify stores): hide the last `months`, forecast them from
+    everything before with the same engine, and compare per style with what really sold and with the usual
+    habit of repeating the previous `months`. Gives every store its own accuracy number."""
+    try:
+        o = inp["orders"]
+        if inp.get("mode") != "orders" or o.empty:
+            return None
+        end = o.date.max().normalize() + pd.Timedelta(days=1)
+        cut = end - pd.Timedelta(days=int(months * 30.44))
+        if (cut - o.date.min()).days < 240:            # need ~8 months before the cut to learn the pattern
+            return None
+        tr = o[o.date < cut]
+        f = build_forecast(tr, inp["production"], inp["products"])
+        f = apply_window(f, tr, inp["products"], cut, (end - cut).days / 30.44)
+        sold = o[o.status.isin(("delivered", "size_exchange"))]
+        actual = sold[sold.date >= cut].groupby("style_id").qty.sum()
+        prev = sold[(sold.date < cut) & (sold.date >= cut - (end - cut))].groupby("style_id").qty.sum()
+        seen = set(tr.style_id)
+        actual = actual[actual.index.isin(seen)]
+        if actual.sum() < 30 or len(actual) < 3:
+            return None
+        pred = f["sku"].groupby("style_id")["mean"].sum().reindex(actual.index).fillna(0)
+        prev = prev.reindex(actual.index).fillna(0)
+        err = lambda x: float((x - actual).abs().sum() / actual.sum())  # noqa: E731
+        return dict(kind="window", season=f"your last {months} months", styles=int(len(actual)),
+                    style_error=_r(err(pred), 3), repeat_last_error=_r(err(prev), 3),
+                    total_bias=_r(float(pred.sum() / actual.sum() - 1), 3),
+                    rows=[dict(style=str(s), predicted=_r(pred[s]), actual=_r(actual[s])) for s in actual.index])
     except Exception:  # noqa: BLE001 - a check that can't run shouldn't block the plan
         return None
 
@@ -154,7 +187,7 @@ def build_view(inp: dict, n_scen: int = 200, budget_steps=BUDGET_STEPS, time_lim
                      soldout=int(fc["corrected"].sold_out.sum()), skus=int(len(sku)), growth=_r(fc["growth"], 3),
                      soldout_inferred=int(fc["corrected"].get("sold_out_inferred", pd.Series(dtype=bool)).sum()),
                      production_known=bool((inp["production"].produced > 0).any())),
-        check=own_data_check(inp, fc),
+        check=own_data_check(inp, fc) or window_check(inp),
     )
     if backtest is not None:
         data["backtest"] = backtest.to_dict("records")
