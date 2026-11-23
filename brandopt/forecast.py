@@ -347,10 +347,15 @@ def window_shares(orders: pd.DataFrame, products: pd.DataFrame, start: pd.Timest
     return out
 
 
+MIN_MONTH_DAYS = 1      # a calendar month seen on fewer days than this counts as unseen (interpolated)
+RATIO_K = 0.0           # pull a style's seasonal ratio toward 1 by RATIO_K / (units + RATIO_K)
+
+
 def _month_shape(daily: pd.Series) -> pd.Series | None:
     """Calendar-month shape (mean 1) of a daily sales series; months never observed are interpolated from the
     neighbouring months (seasons are smooth), not filled with the average."""
-    r = daily.groupby(daily.index.month).mean().reindex(range(1, 13))
+    g = daily.groupby(daily.index.month)
+    r = g.mean().where(g.size() >= MIN_MONTH_DAYS).reindex(range(1, 13))
     v = r.to_numpy(float).copy()
     ok = ~np.isnan(v)
     if not ok.any():
@@ -422,7 +427,9 @@ def seasonal_window_means(orders: pd.DataFrame, products: pd.DataFrame, start: p
         prior = cats.get(cat.get(sid, "Other"), store)
         sh = prior if own is None else (n * own + k_style * prior) / (n + k_style)
         den = float(sh.reindex(rec.month).sum())
-        out[sid] = float(recent.get(sid, 0.0)) / max(den, 1e-9) * float(sh.reindex(win.month).sum()) * ahead
+        ratio = float(sh.reindex(win.month).sum()) / max(den, 1e-9) * len(rec) / len(win)   # window vs recent pace
+        ratio = 1 + (ratio - 1) * n / (n + RATIO_K)
+        out[sid] = float(recent.get(sid, 0.0)) / len(rec) * len(win) * ratio * ahead
     return out
 
 

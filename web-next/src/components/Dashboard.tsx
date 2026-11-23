@@ -518,7 +518,7 @@ function Trust({ view }: { view: PlanView }) {
           repeating last season&apos;s sales (about 20% off vs 30% off).
           {view.check
             ? view.check.kind === "window"
-              ? ` On your own data, forecasting ${view.check.season} from the months before them: ${pct(view.check.style_error)} off per style, vs ${pct(view.check.repeat_last_error)} for repeating the months just before.`
+              ? ` On your own data, forecasting ${view.check.season} from the months before them: ${pct(view.check.style_error)} off per style, vs ${pct(view.check.repeat_last_error)} for repeating the months just before.${view.check.units_per_style != null && view.check.units_per_style < 30 ? ` With about ${Math.round(view.check.units_per_style)} pieces per style in a period, chance moves both numbers a lot.` : ""}`
               : ` On your own data, planning ${view.check.season} from the seasons before it: ${pct(view.check.style_error)} off per style, vs ${pct(view.check.repeat_last_error)} for repeating last season.`
             : " The ranges in the table (8 seasons in 10) show how far one season can swing."}
         </li>

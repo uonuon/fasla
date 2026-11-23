@@ -65,35 +65,53 @@ def own_data_check(inp: dict, fc: dict) -> dict | None:
         return None
 
 
-def window_check(inp: dict, months: int = 3) -> dict | None:
-    """For stores with a year or so of history (most Shopify stores): hide the last `months`, forecast them from
+def window_check(inp: dict, months: int = 3, max_tests: int = 3) -> dict | None:
+    """For stores with a year or so of history (most Shopify stores): hide `months`, forecast them from
     everything before with the same engine, and compare per style with what really sold and with the usual
-    habit of repeating the previous `months`. Gives every store its own accuracy number."""
+    habit of repeating the previous `months`. Gives every store its own accuracy number.
+
+    Repeated for up to `max_tests` windows (the last `months`, then ending 1 and 2 months earlier) when the
+    history allows, and pooled: one 3-month window of a small store is mostly luck (a style selling 4 pieces
+    a month is easily 50% off either way), and a single draw flipped the verdict on our own test store."""
     try:
         o = inp["orders"]
         if inp.get("mode") != "orders" or o.empty:
             return None
-        end = o.date.max().normalize() + pd.Timedelta(days=1)
-        cut = end - pd.Timedelta(days=int(months * 30.44))
-        if (cut - o.date.min()).days < 240:            # need ~8 months before the cut to learn the pattern
-            return None
-        tr = o[o.date < cut]
-        f = build_forecast(tr, inp["production"], inp["products"])
-        f = apply_window(f, tr, inp["products"], cut, (end - cut).days / 30.44)
         sold = o[o.status.isin(("delivered", "size_exchange"))]
-        actual = sold[sold.date >= cut].groupby("style_id").qty.sum()
-        prev = sold[(sold.date < cut) & (sold.date >= cut - (end - cut))].groupby("style_id").qty.sum()
-        seen = set(tr.style_id)
-        actual = actual[actual.index.isin(seen)]
-        if actual.sum() < 30 or len(actual) < 3:
+        last = o.date.max().normalize() + pd.Timedelta(days=1)
+        span = pd.Timedelta(days=int(months * 30.44))
+        e_pred = e_prev = tot = bias_p = 0.0
+        rows, tests, styles = None, 0, 0
+        for back in range(max_tests):
+            end = last - pd.Timedelta(days=int(back * 30.44))
+            cut = end - span
+            if (cut - o.date.min()).days < 240:            # need ~8 months before the cut to learn the pattern
+                break
+            tr = o[o.date < cut]
+            f = build_forecast(tr, inp["production"], inp["products"])
+            f = apply_window(f, tr, inp["products"], cut, (end - cut).days / 30.44)
+            actual = sold[(sold.date >= cut) & (sold.date < end)].groupby("style_id").qty.sum()
+            prev = sold[(sold.date < cut) & (sold.date >= cut - (end - cut))].groupby("style_id").qty.sum()
+            actual = actual[actual.index.isin(set(tr.style_id))]
+            if actual.sum() < 30 or len(actual) < 3:
+                continue
+            pred = f["sku"].groupby("style_id")["mean"].sum().reindex(actual.index).fillna(0)
+            prev = prev.reindex(actual.index).fillna(0)
+            e_pred += float((pred - actual).abs().sum())
+            e_prev += float((prev - actual).abs().sum())
+            tot += float(actual.sum())
+            bias_p += float(pred.sum())
+            tests += 1
+            if rows is None:
+                styles = int(len(actual))
+                rows = [dict(style=str(s), predicted=_r(pred[s]), actual=_r(actual[s])) for s in actual.index]
+        if not tests:
             return None
-        pred = f["sku"].groupby("style_id")["mean"].sum().reindex(actual.index).fillna(0)
-        prev = prev.reindex(actual.index).fillna(0)
-        err = lambda x: float((x - actual).abs().sum() / actual.sum())  # noqa: E731
-        return dict(kind="window", season=f"your last {months} months", styles=int(len(actual)),
-                    style_error=_r(err(pred), 3), repeat_last_error=_r(err(prev), 3),
-                    total_bias=_r(float(pred.sum() / actual.sum() - 1), 3),
-                    rows=[dict(style=str(s), predicted=_r(pred[s]), actual=_r(actual[s])) for s in actual.index])
+        season = f"your last {months} months" if tests == 1 else f"{tests} recent {months}-month periods"
+        return dict(kind="window", season=season, tests=tests, styles=styles,
+                    units_per_style=_r(tot / tests / max(styles, 1)),
+                    style_error=_r(e_pred / tot, 3), repeat_last_error=_r(e_prev / tot, 3),
+                    total_bias=_r(bias_p / tot - 1, 3), rows=rows)
     except Exception:  # noqa: BLE001 - a check that can't run shouldn't block the plan
         return None
 
