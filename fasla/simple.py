@@ -38,6 +38,9 @@ ALIASES = {
     "courier": ["courier", "shipping_company", "courier_name", "carrier", "shipping_carrier", "shipping_method",
                 "delivery_company"],
     "cost": ["unit_cost", "cost", "cost_price", "cost_per_item", "item_cost"],
+    # pieces on hand now, per product + colour + size (Shopify import fills it; any sheet may have it)
+    "stock": ["stock", "on_hand", "in_stock", "inventory", "inventory_quantity", "stock_on_hand", "qty_on_hand",
+              "variant_inventory_qty", "المخزون"],
     "category": ["category", "product_type", "type", "collection"],
     "cancelled": ["cancelled_at", "canceled_at"],
     "financial": ["financial_status", "payment_status"],
@@ -321,6 +324,7 @@ def parse_orders(df: pd.DataFrame, max_rows: int = 300_000, columns: dict | None
     cat = df[col["category"]].astype(str).str.strip().replace({"": "Other", "nan": "Other"}) if col["category"] else "Other"
     out["category"] = cat
     out["cost"] = cost
+    out["stock"] = _num(df[col["stock"]]) if col.get("stock") else np.nan
 
     warnings, errors = [], []
     # Shopify lists extra lines (shipping, gift cards) without a size: drop rows we can't use
@@ -341,21 +345,37 @@ def parse_orders(df: pd.DataFrame, max_rows: int = 300_000, columns: dict | None
     out["qty"] = out.qty.round().astype(int)
     out["style_id"] = out.style_id.str.slice(0, 80)
 
+    out = out.sort_values("date", kind="stable")
     p = (out.groupby(["style_id", "color", "size"], sort=False)
-         .agg(price=("price", "median"), unit_cost=("cost", "median"), category=("category", "first")).reset_index())
+         .agg(price=("price", "median"), unit_cost=("cost", "median"), category=("category", "first"),
+              on_hand=("stock", "last")).reset_index())
     style_price = out.groupby("style_id").price.median()
     p["price"] = p.price.fillna(p.style_id.map(style_price)).round(2)
     style_cost = out.groupby("style_id").cost.median()
     p["unit_cost"] = p.unit_cost.fillna(p.style_id.map(style_cost))
     p.insert(1, "name", p.style_id)
-    products = p[["style_id", "name", "category", "color", "size", "unit_cost", "price"]]
+    has_stock = p.on_hand.notna().any()
+    products = p[["style_id", "name", "category", "color", "size", "unit_cost", "price"]
+                 + (["on_hand"] if has_stock else [])]
 
     yr = out.date.dt.year.where(out.date.dt.month >= 7, out.date.dt.year - 1)
     out["_season"] = yr.map(lambda y: f"Season {y}/{(y + 1) % 100:02d}")
     production = (out.groupby(["_season", "style_id", "color", "size"]).size().reset_index()
                   .rename(columns={"_season": "season"}).drop(columns=0))
     production["produced"] = 0
-    orders = out.drop(columns=["cost", "category", "_season"])
+    if has_stock:
+        # a size at 0 that sold this season sold out: record "produced = sold" for the latest season, which the
+        # forecast reads as a sell-out and corrects for the demand it missed
+        latest = out._season.max()
+        sold_now = (out[(out._season == latest) & out.status.isin(("delivered", "size_exchange"))]
+                    .groupby(["style_id", "color", "size"]).qty.sum())
+        zero = p.set_index(["style_id", "color", "size"]).on_hand
+        zero = zero[zero.notna() & (zero <= 0)].index
+        for i, r in production[production.season == latest].iterrows():
+            k = (r.style_id, r.color, r["size"])
+            if k in zero and sold_now.get(k, 0) > 0:
+                production.at[i, "produced"] = int(sold_now[k])
+    orders = out.drop(columns=["cost", "category", "_season", "stock"])
 
     if not col["status"] and not col["cancelled"]:
         warnings.append("No order status column: we assumed every order was delivered, so refusals aren't counted.")

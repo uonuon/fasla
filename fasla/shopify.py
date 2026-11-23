@@ -208,7 +208,8 @@ query Orders($q: String!, $after: String) {
           title quantity currentQuantity sku variantTitle
           originalUnitPriceSet { shopMoney { amount } }
           product { id title productType }
-          variant { selectedOptions { name value } inventoryItem { unitCost { amount } } }
+          variant { selectedOptions { name value } inventoryQuantity
+                    inventoryItem { tracked unitCost { amount } } }
         }
       }
     }
@@ -220,7 +221,7 @@ COLOR_NAMES = ("color", "colour", "اللون", "لون", "couleur")
 # No financial status column: a partial refund would mark every line refused. Line-level returns are read
 # from currentQuantity instead, and cancellations from cancelled_at.
 CSV_COLUMNS = ["order_id", "date", "style", "size", "color", "qty", "price", "cost", "category", "status",
-               "cancelled_at"]
+               "cancelled_at", "stock"]
 
 
 def _options(variant: dict | None, variant_title: str | None) -> tuple[str, str]:
@@ -247,7 +248,13 @@ def order_rows(orders: list[dict]) -> list[dict]:
                 continue
             size, color = _options(li.get("variant"), li.get("variantTitle"))
             prod = li.get("product") or {}
-            cost = (((li.get("variant") or {}).get("inventoryItem") or {}).get("unitCost") or {}).get("amount")
+            var = li.get("variant") or {}
+            inv = var.get("inventoryItem") or {}
+            cost = (inv.get("unitCost") or {}).get("amount")
+            # stock on hand now; only when Shopify tracks it (untracked variants report 0 or less)
+            stock = var.get("inventoryQuantity") if inv.get("tracked") and var.get("inventoryQuantity") is not None else ""
+            if stock != "":
+                stock = max(int(stock), 0)
             removed = qty - (li.get("currentQuantity") if li.get("currentQuantity") is not None else qty)
             status = o.get("displayFulfillmentStatus") or ""
             if removed >= qty and not o.get("cancelledAt"):
@@ -257,7 +264,7 @@ def order_rows(orders: list[dict]) -> list[dict]:
                 style=prod.get("title") or li.get("title") or "", size=size, color=color, qty=qty,
                 price=((li.get("originalUnitPriceSet") or {}).get("shopMoney") or {}).get("amount", ""),
                 cost=cost or "", category=prod.get("productType") or "", status=status,
-                cancelled_at=o.get("cancelledAt") or ""))
+                cancelled_at=o.get("cancelledAt") or "", stock=stock))
     return rows
 
 

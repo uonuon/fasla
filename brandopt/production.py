@@ -154,8 +154,11 @@ def evaluate_plan(q: np.ndarray, sku: pd.DataFrame, demand: np.ndarray, leftover
     )
 
 
-def explain_styles(q: np.ndarray, sku: pd.DataFrame, scen: np.ndarray, leftover_share: float = 0.30) -> pd.DataFrame:
-    """Per-style story: forecast, plan, critical ratio, risks."""
+def explain_styles(q: np.ndarray, sku: pd.DataFrame, scen: np.ndarray, leftover_share: float = 0.30,
+                   stock: np.ndarray | None = None) -> pd.DataFrame:
+    """Per-style story: forecast, plan, critical ratio, risks. `planned` is new production; stock already on
+    hand sells first and counts toward what is sold and left over."""
+    st = np.zeros(len(q)) if stock is None else np.asarray(stock, float)
     c = sku.unit_cost.to_numpy(float)
     p = sku.price.to_numpy(float)
     v = np.minimum(leftover_share * p, 0.95 * c)
@@ -163,12 +166,13 @@ def explain_styles(q: np.ndarray, sku: pd.DataFrame, scen: np.ndarray, leftover_
     for sid, idx in sku.groupby("style_id", sort=False).indices.items():
         d = scen[:, idx].sum(1)
         qq = q[idx].sum()
-        sold = np.minimum(scen[:, idx], q[idx]).sum(1)
+        have = qq + st[idx].sum()
+        sold = np.minimum(scen[:, idx], q[idx] + st[idx]).sum(1)
         cr = float(np.mean((p[idx] - c[idx]) / (p[idx] - v[idx])))
         rows.append(dict(style_id=sid, forecast_mean=d.mean(), forecast_p10=np.percentile(d, 10),
-                         forecast_p90=np.percentile(d, 90), planned=int(qq), critical_ratio=cr,
-                         expected_sold=sold.mean(), expected_leftover=(qq - sold).mean(),
-                         chance_sell_out=float(np.mean(sold >= qq - 0.5)) if qq > 0 else 0.0,
+                         forecast_p90=np.percentile(d, 90), planned=int(qq), on_hand=int(st[idx].sum()),
+                         critical_ratio=cr, expected_sold=sold.mean(), expected_leftover=(have - sold).mean(),
+                         chance_sell_out=float(np.mean(sold >= have - 0.5)) if have > 0 else 0.0,
                          cash=float((q[idx] * c[idx]).sum())))
     return pd.DataFrame(rows)
 
