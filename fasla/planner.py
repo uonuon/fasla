@@ -86,7 +86,8 @@ def suggest_settings(products: pd.DataFrame, orders: pd.DataFrame) -> dict:
       budget       about 1.3x what last year's sales cost to make (room for growth and safety stock)
       start_cash   the same (unknown: assume the budget is there)
       fixed_weekly 0 (unknown; a currency-blind guess would distort the cash chart)
-      factory_moq  half of a typical style's yearly sales, at most 100: a minimum above that blocks most styles
+      factory_moq  about one month of a typical style's sales, at most 100. It is a guess, so it stays low: a
+                   higher one forced every style above its demand in a 3-month plan (the Shopify default)
       min_per_color a third of that, at most 20"""
     sold = orders[orders.status.isin(("delivered", "size_exchange"))]
     if sold.empty:
@@ -98,7 +99,7 @@ def suggest_settings(products: pd.DataFrame, orders: pd.DataFrame) -> dict:
     cogs = float((last.qty.to_numpy() * unit.reindex(keys).fillna(0).to_numpy()).sum())
     per_style = last.groupby("style_id").qty.sum()
     typical = float(per_style.median()) if len(per_style) else 0.0
-    moq = float(min(100, 5 * int(typical * 0.5 // 5)))
+    moq = float(min(100, 5 * int(typical / 12 // 5)))
     budget = max(100.0, _nice(1.3 * cogs))
     return dict(budget=budget, start_cash=budget, fixed_weekly=0.0, factory_moq=moq,
                 min_per_color=float(min(20, 5 * int(moq / 3 // 5))))
