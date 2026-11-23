@@ -125,4 +125,18 @@ def init_private(eng) -> None:
             if exists (select 1 from pg_roles where rolname = 'anon') then
                 execute 'revoke all on schema {PRIVATE} from anon, authenticated';
             end if; end $$;"""))
+    # supabase/migrations/0003: Shopify shops are users without a Supabase login (idempotent).
+    # Never block startup on it: if the role can't alter the tables, log it and run the SQL file by hand.
+    try:
+        with eng.begin() as con:
+            con.execute(text("""do $$ begin
+                if to_regclass('public.brands') is not null then
+                    alter table public.brands drop constraint if exists brands_user_id_fkey;
+                end if;
+                if to_regclass('public.plans') is not null then
+                    alter table public.plans drop constraint if exists plans_user_id_fkey;
+                end if; end $$;"""))
+    except Exception as e:  # noqa: BLE001
+        import logging
+        logging.getLogger("fasla").warning("Couldn't apply migration 0003 (run it in the SQL editor): %s", str(e)[:200])
     private.create_all(eng)

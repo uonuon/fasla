@@ -25,8 +25,9 @@ _load_dotenv()
 
 
 def _env(name: str, default: str = "") -> str:
-    # An empty value counts as unset, so a placeholder secret ("") falls back to the default.
-    return (os.environ.get(name) or "").strip() or default
+    # An empty value (or "-", the placeholder our AWS secrets are created with) counts as unset.
+    v = (os.environ.get(name) or "").strip()
+    return default if v in ("", "-") else v
 
 
 @dataclass(frozen=True)
