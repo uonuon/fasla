@@ -75,6 +75,8 @@ class FakeShopify:
                                              "refresh_token_expires_in": 7776000})
         assert request.url.path.endswith("/graphql.json")
         assert request.headers["X-Shopify-Access-Token"].startswith("shpat_")
+        if request.headers["X-Shopify-Access-Token"] in getattr(self, "revoked", set()):
+            return httpx.Response(401, json={"errors": "[API] Invalid API key or access token"})
         q = json.loads(request.content)
         if "currentAppInstallation" in q["query"]:
             return httpx.Response(200, json={"data": {"shop": {"name": "Nile Thread", "currencyCode": "EGP", "ianaTimezone": "Africa/Cairo"},
@@ -184,6 +186,16 @@ def test_token_refresh_when_expired(app_env):
     assert fake.exchange_count == 1 and fake.refresh_count == 0
     assert c.get("/api/shopify/session", headers=H()).status_code == 200
     assert fake.refresh_count == 1 and fake.exchange_count == 1
+
+
+def test_reinstall_before_uninstall_webhook_gets_fresh_token(app_env):
+    c, fake, main = app_env
+    assert c.get("/api/shopify/session", headers=H()).status_code == 200
+    old = f"shpat_{fake.exchange_count}_{fake.refresh_count}"
+    fake.revoked = {old}            # uninstalled + reinstalled; app/uninstalled webhook not here yet
+    r = c.post("/api/shopify/import", json={"days": 365}, headers=H())
+    assert r.status_code == 201, r.text
+    assert fake.exchange_count == 2
 
 
 def test_regular_users_and_bad_tokens(app_env):

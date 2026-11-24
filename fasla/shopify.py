@@ -158,10 +158,14 @@ def refresh_token(shop: str, refresh: str, api_key: str, api_secret: str, client
 
 # ---------------------------------------------------------------- Admin GraphQL
 class Admin:
-    def __init__(self, shop: str, access_token: str, api_version: str, client: httpx.Client | None = None):
+    def __init__(self, shop: str, access_token: str, api_version: str, client: httpx.Client | None = None,
+                 reauth=None):
         self.url = f"https://{shop}/admin/api/{api_version}/graphql.json"
         self.headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
         self.c = client or httpx.Client(timeout=40)
+        # reauth() -> a fresh access token (or None). Used once when Shopify rejects the stored one,
+        # e.g. after an uninstall + reinstall whose app/uninstalled webhook hasn't arrived yet.
+        self.reauth = reauth
 
     def query(self, q: str, variables: dict | None = None, retries: int = 5) -> dict:
         for attempt in range(retries):
@@ -170,6 +174,11 @@ class Admin:
                 time.sleep(min(2 ** attempt, 10))
                 continue
             if r.status_code in (401, 403):
+                fresh = self.reauth() if self.reauth else None
+                self.reauth = None
+                if fresh:
+                    self.headers["X-Shopify-Access-Token"] = fresh
+                    continue
                 raise ShopifyError("Fasla lost access to this store. Reload the app.", 401)
             r.raise_for_status()
             j = r.json()

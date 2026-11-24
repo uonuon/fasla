@@ -244,7 +244,17 @@ def _admin(shop: str, id_token: str = "") -> shp.Admin:
             else:
                 raise shp.ShopifyError("Open Fasla from your Shopify admin to reconnect.", 401)
             _save_tokens(shop, t)
-    return shp.Admin(shop, t.access_token, S.shopify_api_version)
+
+    def reauth():
+        # The stored token was rejected (revoked on uninstall): swap the session token for a new one.
+        if not id_token:
+            return None
+        with _token_lock:
+            fresh = shp.exchange_token(shop, id_token, S.shopify_api_key, S.shopify_api_secret)
+            _save_tokens(shop, fresh)
+        return fresh.access_token
+
+    return shp.Admin(shop, t.access_token, S.shopify_api_version, reauth=reauth)
 
 
 def _shop_tier(request: Request, shop: str) -> str:
