@@ -39,8 +39,8 @@ export default function TryPage() {
   async function poll(id: string) {
     const t0 = Date.now();
     while (!stop.current && Date.now() - t0 < 5 * 60 * 1000) {
-      await new Promise((r) => setTimeout(r, 1500));
-      const r = await fetch(`/api/try/${id}`);
+      await new Promise((r) => setTimeout(r, 1200));
+      const r = await fetch(`/api/try/${id}?t=${Date.now()}`, { cache: "no-store" });
       if (!r.ok) continue;
       const s = (await r.json()) as Status;
       if (s.status === "done" && s.result) return s.result;
