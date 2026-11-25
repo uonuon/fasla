@@ -293,3 +293,20 @@ def test_try_bad_file_and_unknown_id(client):
 def test_try_example_needs_no_upload(client):
     r = client.get("/api/try-example")
     assert r.status_code == 200 and r.json()["result"]["styles"]
+
+
+def test_try_works_when_storage_only_takes_xlsx(client, monkeypatch):
+    import fasla.main as main
+    real = main.storage.put
+
+    def picky(path, data, ctype):
+        if ctype != main.XLSX:
+            raise main.StorageError("mime type not supported")
+        return real(path, data, ctype)
+
+    monkeypatch.setattr(main.storage, "put", picky)
+    csv = "order_id,date,style,size,qty,price,status\n" + "".join(
+        f"#{i},2026-0{1 + i % 9}-1{i % 9},Tee,{'SML'[i % 3]},1,20,delivered\n" for i in range(90))
+    r = client.post("/api/try", files={"file": ("o.csv", csv.encode(), "text/csv")})
+    assert r.status_code == 202, r.text
+    assert _wait_try(client, r.json()["id"])["status"] == "done"

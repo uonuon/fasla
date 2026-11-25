@@ -456,6 +456,16 @@ _try_lock = threading.Lock()
 TRY_PER_HOUR = 6
 
 
+def _put_lenient(path: str, data: bytes, ctype: str) -> None:
+    """The Supabase bucket may only allow xlsx (supabase/migrations/0002 not applied yet): the bytes are what matter."""
+    try:
+        storage.put(path, data, ctype)
+    except StorageError:
+        if ctype == XLSX:
+            raise
+        storage.put(path, data, XLSX)
+
+
 def _client_ip(request: Request) -> str:
     fwd = request.headers.get("x-forwarded-for", "")
     return (fwd.split(",")[0].strip() if fwd else "") or (request.client.host if request.client else "?")
@@ -485,7 +495,7 @@ def _try_job(tid: str, data: bytes, who: str) -> None:
         out = {"status": "error", "error": "Something went wrong while planning this file. We've been told and will look into it."}
         track("try_failed", None, try_id=tid, error="crash")
     try:
-        storage.put(f"_try/{tid}.json", trial.encode(out), "application/json")
+        _put_lenient(f"_try/{tid}.json", trial.encode(out), "application/json")
     except StorageError:
         log.exception("could not save try result %s", tid)
 
@@ -505,8 +515,8 @@ async def try_upload(request: Request, file: UploadFile = File(...), contact: st
         raise HTTPException(422, "We couldn't open this file. Upload your orders export as .xlsx or .csv.")
     tid = uuid.uuid4().hex[:16]
     try:
-        storage.put(f"_try/{tid}.{ext}", clean, XLSX if ext == "xlsx" else "text/csv")
-        storage.put(f"_try/{tid}.json", trial.encode({"status": "running"}), "application/json")
+        _put_lenient(f"_try/{tid}.{ext}", clean, XLSX if ext == "xlsx" else "text/csv")
+        _put_lenient(f"_try/{tid}.json", trial.encode({"status": "running"}), "application/json")
     except StorageError as e:
         raise HTTPException(502, f"Couldn't save the file: {e}")
     track("try_upload", None, try_id=tid, ext=ext, file_name=(file.filename or "")[:120], contact=contact.strip()[:200])
