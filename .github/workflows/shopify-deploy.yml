@@ -1,0 +1,39 @@
+name: Shopify app config deploy
+
+# Sends shopify.app.toml (scopes, URLs, webhooks incl. the mandatory compliance webhooks) to Shopify
+# as a new app version. Run by hand: Actions -> Shopify app config deploy -> Run workflow.
+# Needs two repo secrets:
+#   SHOPIFY_CLIENT_ID             - Dev Dashboard -> Fasla -> Settings -> Client ID (public, not secret)
+#   SHOPIFY_APP_AUTOMATION_TOKEN  - Dev Dashboard -> Fasla -> Settings -> App CLI automation token
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [shopify.app.toml]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fill in the client ID
+        env:
+          CID: ${{ secrets.SHOPIFY_CLIENT_ID }}
+        run: |
+          if [ -z "$CID" ]; then echo "::warning::SHOPIFY_CLIENT_ID secret is not set; skipping deploy"; echo "SKIP=1" >> "$GITHUB_ENV"; exit 0; fi
+          sed -i "s/^client_id = .*/client_id = \"$CID\"/" shopify.app.toml
+      - name: Deploy app configuration
+        if: env.SKIP != '1'
+        env:
+          SHOPIFY_APP_AUTOMATION_TOKEN: ${{ secrets.SHOPIFY_APP_AUTOMATION_TOKEN }}
+          SHOPIFY_SERVICE_ACCOUNT_TOKEN: ${{ secrets.SHOPIFY_APP_AUTOMATION_TOKEN }}
+        run: |
+          npx -y @shopify/cli@latest app deploy --allow-updates \
+            --version "fasla-ci-${{ github.run_number }}" \
+            --message "App config from ${GITHUB_SHA::7}: scopes, URLs and webhooks (incl. compliance)"

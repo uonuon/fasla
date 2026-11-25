@@ -1,5 +1,5 @@
-# Shopify app configuration. Deploy with the Shopify CLI (`shopify app deploy`) after filling client_id.
-client_id = "FILL_ME_FROM_DEV_DASHBOARD"
+# Shopify app configuration. Deployed by .github/workflows/shopify-deploy.yml (client_id comes from a repo secret).
+client_id = "SET_BY_CI_FROM_SECRET"
 name = "Fasla"
 handle = "fasla"
 application_url = "https://fasla.dotcraft.app/shopify/"
