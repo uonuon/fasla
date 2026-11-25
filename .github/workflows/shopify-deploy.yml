@@ -4,7 +4,8 @@ name: Shopify app config deploy
 # as a new app version. Run by hand: Actions -> Shopify app config deploy -> Run workflow.
 # Needs two repo secrets:
 #   SHOPIFY_CLIENT_ID             - Dev Dashboard -> Fasla -> Settings -> Client ID (public, not secret)
-#   SHOPIFY_APP_AUTOMATION_TOKEN  - Dev Dashboard -> Fasla -> Settings -> App CLI automation token
+#   SHOPIFY_APP_AUTOMATION_TOKEN  - service account token (Dev Dashboard -> Fasla -> Settings -> App CLI automation token),
+#                                   passed to the CLI as SHOPIFY_SERVICE_ACCOUNT_TOKEN
 on:
   workflow_dispatch:
   push:
@@ -31,7 +32,6 @@ jobs:
       - name: Deploy app configuration
         if: env.SKIP != '1'
         env:
-          SHOPIFY_APP_AUTOMATION_TOKEN: ${{ secrets.SHOPIFY_APP_AUTOMATION_TOKEN }}
           SHOPIFY_SERVICE_ACCOUNT_TOKEN: ${{ secrets.SHOPIFY_APP_AUTOMATION_TOKEN }}
         run: |
           npx -y @shopify/cli@latest app deploy --allow-updates \
