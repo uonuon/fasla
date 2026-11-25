@@ -252,3 +252,44 @@ def test_batch_plan_flow(client):
     assert r.status_code == 422 and "detail" in r.json()
     r = client.post("/api/batch/plan", headers=h, files={"file": ("e.csv", io.BytesIO(b"a,b"), "text/csv")})
     assert r.status_code == 400
+
+
+def _wait_try(c, tid, secs=120):
+    t0 = time.time()
+    while time.time() - t0 < secs:
+        r = c.get(f"/api/try/{tid}")
+        assert r.status_code == 200, r.text
+        if r.json()["status"] != "running":
+            return r.json()
+        time.sleep(0.5)
+    raise AssertionError("try plan did not finish")
+
+
+def test_try_without_account_keeps_a_scrubbed_copy(client):
+    import fasla.main as main
+    csv = ("order_id,date,style,size,color,qty,price,status,email,phone\n"
+           + "".join(f"#{i},2026-0{1 + i % 9}-1{i % 9},Linen Dress,{'SML'[i % 3]},Sand,1,40,delivered,"
+                     f"buyer{i}@mail.com,0100123{i:04d}\n" for i in range(150)))
+    r = client.post("/api/try", files={"file": ("orders.csv", csv.encode(), "text/csv")}, data={"contact": "@brand"})
+    assert r.status_code == 202, r.text
+    tid = r.json()["id"]
+    out = _wait_try(client, tid)
+    assert out["status"] == "done", out
+    st = out["result"]["styles"][0]
+    assert st["name"] == "Linen Dress" and st["units"] > 0 and {s["size"] for s in st["sizes"]} <= {"S", "M", "L"}
+    kept = main.storage.get(f"_try/{tid}.csv").decode()
+    assert "buyer1@mail.com" not in kept and "01001230001" not in kept and "Linen Dress" in kept
+
+
+def test_try_bad_file_and_unknown_id(client):
+    r = client.post("/api/try", files={"file": ("x.csv", b"hello,world\n1,2\n", "text/csv")})
+    assert r.status_code == 202
+    out = _wait_try(client, r.json()["id"])
+    assert out["status"] == "error" and out["error"]
+    assert client.get("/api/try/zzzz").status_code == 404
+    assert client.get("/api/try/" + "0" * 16).status_code == 404
+
+
+def test_try_example_needs_no_upload(client):
+    r = client.get("/api/try-example")
+    assert r.status_code == 200 and r.json()["result"]["styles"]

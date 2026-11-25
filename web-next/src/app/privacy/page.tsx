@@ -21,7 +21,8 @@ export default function Privacy() {
           <li>We don&apos;t keep your customers&apos; personal details. Names, phone numbers, emails and addresses are removed from your file before it is stored.</li>
           <li>You can delete a plan or a whole brand at any time, and its files are deleted with it.</li>
           <li>If Fasla can&apos;t read a file, we note its column names and a few example values (never customer details) so we can fix it. We keep the file itself only if you press &quot;Send this file to Fasla&quot;, with customer details removed, and delete it after 30 days.</li>
-          <li>We only use your data to improve Fasla if you say yes, and only anonymised and combined with other brands.</li>
+          <li>For your account, we only use your data to improve Fasla if you say yes, and only anonymised and combined with other brands.</li>
+          <li>Files uploaded on the free &quot;Try it&quot; page (no account) are kept, with customer details removed, to make your plan and to improve how Fasla reads files and forecasts. Ask us and we delete them.</li>
         </ul>
 
         <h2 style={{ fontSize: 20 }}>What we collect</h2>
@@ -50,6 +51,16 @@ export default function Privacy() {
             pay for them twice. Your questions and answers are not stored.
           </li>
         </ul>
+
+        <h2 style={{ fontSize: 20 }}>The free &quot;Try it&quot; page</h2>
+        <p>
+          On the &quot;Try it&quot; page you can get a plan without an account. When you upload a file there, we keep a copy with
+          customer names, phone numbers, emails and addresses removed, together with the plan and the contact you chose to give
+          (if any). We use these files to make your plan, to improve how Fasla reads different files, and to make its forecasts
+          more accurate, studied together with other brands&apos; files. We never sell them, never show them to other brands, and never
+          publish anything that identifies your brand. We keep them for up to 24 months. To have yours deleted sooner, email{" "}
+          <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> with the file name or the contact you entered.
+        </p>
 
         <h2 style={{ fontSize: 20 }}>Where it is kept</h2>
         <p>

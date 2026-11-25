@@ -3,8 +3,10 @@ Run locally:  AUTH_MODE=dev STORAGE_MODE=local uvicorn fasla.main:app --port 800
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import time
 import re
 import threading
 import uuid
@@ -13,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from functools import lru_cache
 
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -26,6 +28,7 @@ from . import shopify as shp
 from . import shopify_batch as shb
 from .alerts import restock_alerts
 from . import ai
+from . import trial
 from .ai_context import plan_context
 from .queue import make_queue
 from .planner import WorkbookError, clean_settings, read_orders_table, read_workbook, run_plan_on, template_bytes
@@ -443,6 +446,92 @@ async def shopify_webhook(request: Request):
         # Fasla never stores customer names, emails, phones or addresses: nothing to send or delete
         track("shopify_redact", None, topic=topic)
     return {"ok": True}
+
+
+# ---------------- try Fasla without an account ----------------
+# Anyone can upload an orders file and see a plan. We keep a scrubbed copy (customer details removed) to
+# improve how Fasla reads files and forecasts, as the privacy policy says.
+_try_hits: dict[str, list[float]] = {}
+_try_lock = threading.Lock()
+TRY_PER_HOUR = 6
+
+
+def _client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    return (fwd.split(",")[0].strip() if fwd else "") or (request.client.host if request.client else "?")
+
+
+def _try_rate(ip: str) -> None:
+    now = time.time()
+    with _try_lock:
+        hits = [t for t in _try_hits.get(ip, []) if now - t < 3600]
+        if len(hits) >= TRY_PER_HOUR:
+            raise HTTPException(429, "You've planned a few files already. Create a free account to keep going.")
+        hits.append(now)
+        _try_hits[ip] = hits
+
+
+def _try_job(tid: str, data: bytes, who: str) -> None:
+    try:
+        _, mapping = _smart_parse(data, who)
+        res = trial.plan_file(data, mapping=mapping or None)
+        out = {"status": "done", "result": res}
+        track("try_done", None, try_id=tid, styles=len(res["styles"]), units=res["units"], seconds=res["seconds"])
+    except WorkbookError as e:
+        out = {"status": "error", "error": " ".join(e.errors[:3])}
+        track("try_failed", None, try_id=tid, error=out["error"][:300])
+    except Exception:  # noqa: BLE001
+        log.exception("try plan %s failed", tid)
+        out = {"status": "error", "error": "Something went wrong while planning this file. We've been told and will look into it."}
+        track("try_failed", None, try_id=tid, error="crash")
+    try:
+        storage.put(f"_try/{tid}.json", trial.encode(out), "application/json")
+    except StorageError:
+        log.exception("could not save try result %s", tid)
+
+
+@app.post("/api/try", status_code=202)
+async def try_upload(request: Request, file: UploadFile = File(...), contact: str = Form("")):
+    ip = _client_ip(request)
+    _try_rate(ip)
+    data = await file.read(S.max_upload_mb * 1024 * 1024 + 1)
+    if not data:
+        raise HTTPException(400, "The file is empty.")
+    if len(data) > S.max_upload_mb * 1024 * 1024:
+        raise HTTPException(413, f"The file is larger than {S.max_upload_mb} MB.")
+    try:
+        clean, ext = scrub_file(data)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(422, "We couldn't open this file. Upload your orders export as .xlsx or .csv.")
+    tid = uuid.uuid4().hex[:16]
+    try:
+        storage.put(f"_try/{tid}.{ext}", clean, XLSX if ext == "xlsx" else "text/csv")
+        storage.put(f"_try/{tid}.json", trial.encode({"status": "running"}), "application/json")
+    except StorageError as e:
+        raise HTTPException(502, f"Couldn't save the file: {e}")
+    track("try_upload", None, try_id=tid, ext=ext, file_name=(file.filename or "")[:120], contact=contact.strip()[:200])
+    pool.submit(_try_job, tid, clean, "try-" + hashlib.sha256(ip.encode()).hexdigest()[:12])
+    return {"id": tid}
+
+
+@app.get("/api/try/{tid}")
+def try_status(tid: str):
+    if not re.fullmatch(r"[0-9a-f]{16}", tid):
+        raise HTTPException(404, "Not found")
+    try:
+        return json.loads(storage.get(f"_try/{tid}.json"))
+    except StorageError:
+        raise HTTPException(404, "Not found")
+
+
+@lru_cache(maxsize=1)
+def _example_plan() -> dict:
+    return trial.plan_file(template_bytes(True))
+
+
+@app.get("/api/try-example")
+def try_example():
+    return {"status": "done", "result": _example_plan()}
 
 
 # ---------------- batch products (food in jars, oils, creams): plan the next batch ----------------

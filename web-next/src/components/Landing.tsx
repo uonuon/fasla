@@ -70,15 +70,15 @@ export default function Landing() {
               cash will get, and which courier to use in each zone. It uses statistics you can check, not AI guesses.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Link className="btn primary" href="/login/?mode=signup" style={{ height: 48, padding: "0 22px", fontSize: 16 }}>
-                Plan your season free
+              <Link className="btn primary" href="/try/" style={{ height: 48, padding: "0 22px", fontSize: 16 }}>
+                Try it with your orders
               </Link>
-              <a className="btn" href="#how" style={{ height: 48, padding: "0 22px", fontSize: 16 }}>
-                How it works
-              </a>
+              <Link className="btn" href="/login/?mode=signup" style={{ height: 48, padding: "0 22px", fontSize: 16 }}>
+                Create a free account
+              </Link>
             </div>
             <p className="small muted" style={{ marginTop: 12 }}>
-              Free during early access · no card needed · try it with our example brand first
+              Free during early access · no sign-up needed to try · see your plan in a minute
             </p>
           </div>
           {/* product preview built from real example numbers */}
