@@ -347,7 +347,8 @@ def window_shares(orders: pd.DataFrame, products: pd.DataFrame, start: pd.Timest
     return out
 
 
-MIN_MONTH_DAYS = 1      # a calendar month seen on fewer days than this counts as unseen (interpolated)
+MIN_MONTH_DAYS = 14     # a calendar month seen on fewer days than this counts as unseen (interpolated): a store
+#                         whose history starts on the 28th must not read 3 days as that month's pace
 RATIO_K = 0.0           # pull a style's seasonal ratio toward 1 by RATIO_K / (units + RATIO_K)
 
 

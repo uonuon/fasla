@@ -2,6 +2,9 @@
 Paths always start with the owner's user id."""
 from __future__ import annotations
 
+import os
+import threading
+
 from pathlib import Path
 from urllib.parse import quote
 
@@ -28,7 +31,10 @@ class LocalStorage:
     def put(self, path: str, data: bytes, content_type: str):
         p = self._p(path)
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_bytes(data)
+        # Write then rename, so a reader never sees a half-written file.
+        tmp = p.with_name(f".{p.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+        tmp.write_bytes(data)
+        os.replace(tmp, p)
 
     def get(self, path: str) -> bytes:
         p = self._p(path)

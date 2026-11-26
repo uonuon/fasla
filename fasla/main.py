@@ -529,9 +529,13 @@ def try_status(tid: str):
     if not re.fullmatch(r"[0-9a-f]{16}", tid):
         raise HTTPException(404, "Not found")
     try:
-        body = json.loads(storage.get(f"_try/{tid}.json"))
+        raw = storage.get(f"_try/{tid}.json")
     except StorageError:
         raise HTTPException(404, "Not found")
+    try:
+        body = json.loads(raw)
+    except ValueError:
+        body = {"status": "running"}  # caught mid-write; the next poll gets it
     return JSONResponse(body, headers={"Cache-Control": "no-store"})
 
 
